@@ -11,7 +11,27 @@
     - Avoids CDN (works better with AdBlock / corporate networks)
   -->
   <script>
-    (function () {
+  (function () {
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve(src);
+        s.onerror = () => reject(new Error("Failed to load: " + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    window.__LIBS_READY__ = (async () => {
+      // Load strictly from local libs (no CDN)
+      await loadScript("./libs/jszip.min.js");
+      await loadScript("./libs/FileSaver.min.js");
+      await loadScript("./libs/xlsx.full.min.js");
+      return true;
+    })();
+  })();
+</script>
       function loadScript(src) {
         return new Promise((resolve, reject) => {
           const s = document.createElement("script");
