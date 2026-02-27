@@ -120,7 +120,7 @@
       display:flex;flex-direction:column;gap:10px;
       min-height:128px;
       position:relative;
-      overflow: visible; /* important so tooltip can overflow */
+      overflow: visible;
     }
     .tool:hover{transform:translateY(-1px);border-color:#d1d5db}
     .tool-title{font-weight:900;font-size:16px}
@@ -131,12 +131,11 @@
       box-shadow:0 0 0 4px rgba(11,92,255,.12);
     }
 
-    /* ✅ TOOLTIP ON CARD (FIX: show ABOVE the card, not below) */
+    /* tooltip on card (always above) */
     .tooltip-oncard{
       position:absolute;
       left:14px;
-      bottom:calc(100% + 10px); /* show above */
-      top:auto;
+      bottom:calc(100% + 10px);
       width:min(420px, 86vw);
       background:#0b1220;
       color:#e5e7eb;
@@ -150,31 +149,27 @@
       transform: translateY(6px);
       pointer-events:none;
       transition:.12s ease;
-      z-index:999; /* ensure on top */
+      z-index:999;
     }
     .tool:hover .tooltip-oncard{ opacity:1; transform:translateY(0); }
     .tooltip-oncard b{color:#fff}
     .tooltip-oncard .mini{color:#a7b0c0;font-size:12px;margin-top:6px}
-
     .tooltip-oncard:before{
       content:"";
       position:absolute;
-      bottom:-7px; /* arrow points down to card */
-      top:auto;
+      bottom:-7px;
       left:22px;
       width:12px;height:12px;
       background:#0b1220;
       border-right:1px solid rgba(255,255,255,.08);
       border-bottom:1px solid rgba(255,255,255,.08);
-      border-left:none;
-      border-top:none;
       transform: rotate(45deg);
     }
 
     /* Tool page */
     .toolpage{margin:18px auto 0;max-width:860px}
     .backrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-    .backbtn{border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer}
+    .backbtn{border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 12px;font-weight:900;cursor:pointer}
     .backbtn:hover{border-color:#cbd5e1}
     .toolhead{text-align:center;margin-top:6px}
     .toolhead h2{margin:0;font-size:44px;letter-spacing:-.6px}
@@ -216,16 +211,13 @@
 
         <a href="#" onclick="alert(LANG==='es' ? 'Todo se procesa en tu navegador. No subimos tus archivos.' : 'Everything runs in your browser. We do not upload your files.'); return false;" id="navPrivacy">Privacidad</a>
 
-        <!-- Translate toggle -->
         <button id="translateBtn" class="linkbtn" title="English / Español">EN</button>
 
-        <!-- Contact (hover shows email) -->
         <span class="tipwrap">
           <a id="contactBtn" class="linkbtn" href="mailto:agustingomezmenna@gmail.com" title="Contactar">Contact</a>
           <div class="tip">
             <b>Contacto</b><br/>
             agustingomezmenna@gmail.com
-            <!-- ✅ FIX: no 'Tip:' -->
             <div class="mini"><b>Click</b> para enviar un email.</div>
           </div>
         </span>
@@ -279,7 +271,7 @@
             <button id="processBtn" class="bigbtn" type="button" disabled>Procesar</button>
           </div>
 
-          <div id="log" class="log">Seleccioná un archivo para comenzar…</div>
+          <div id="log" class="log">Cargando librerías…</div>
         </div>
       </div>
     </section>
@@ -287,11 +279,49 @@
 
   <div class="footer">© Replaceit</div>
 
-  <!-- libs -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <!-- ========= LIBS loader with fallback ========= -->
+  <script>
+    // loads external scripts with fallback between CDNs
+    function loadScript(src){
+      return new Promise((resolve, reject)=>{
+        const s=document.createElement('script');
+        s.src=src; s.async=true;
+        s.onload=resolve;
+        s.onerror=reject;
+        document.head.appendChild(s);
+      });
+    }
 
+    async function loadLibs(){
+      // XLSX
+      try { await loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js'); }
+      catch(e1){
+        try { await loadScript('https://unpkg.com/xlsx@0.19.3/dist/xlsx.full.min.js'); }
+        catch(e2){ console.error('Failed to load XLSX', e1, e2); }
+      }
+
+      // JSZip
+      try { await loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'); }
+      catch(e1){
+        try { await loadScript('https://unpkg.com/jszip@3.10.1/dist/jszip.min.js'); }
+        catch(e2){ console.error('Failed to load JSZip', e1, e2); }
+      }
+
+      // FileSaver
+      try { await loadScript('https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'); }
+      catch(e1){
+        try { await loadScript('https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js'); }
+        catch(e2){ console.error('Failed to load FileSaver', e1, e2); }
+      }
+
+      window.__LIBS_READY__ = true;
+      window.dispatchEvent(new Event('libs-ready'));
+    }
+
+    loadLibs();
+  </script>
+
+  <!-- ========= APP ========= -->
   <script>
     // =========
     // i18n
@@ -314,7 +344,10 @@
         previewing: 'Generando preview…',
         processing: 'Procesando…',
         done: 'Listo ✅',
-        noChanges: 'No se detectaron cambios (o no se pudo detectar headers).'
+        noChanges: 'No se detectaron cambios (o no se pudo detectar headers).',
+        libsLoading: 'Cargando librerías…',
+        libsReady: 'Librerías OK. Seleccioná un archivo para comenzar…',
+        libsError: 'ERROR ❌ No se pudieron cargar librerías (XLSX/JSZip/FileSaver). Desactivá AdBlock / red corporativa o probá otra red.'
       },
       en: {
         navTools: 'Tools',
@@ -332,159 +365,13 @@
         previewing: 'Generating preview…',
         processing: 'Processing…',
         done: 'Done ✅',
-        noChanges: 'No changes detected (or headers not detected).'
+        noChanges: 'No changes detected (or headers not detected).',
+        libsLoading: 'Loading libraries…',
+        libsReady: 'Libraries OK. Select a file to start…',
+        libsError: 'ERROR ❌ Libraries failed to load (XLSX/JSZip/FileSaver). Disable AdBlock / corporate network or try another network.'
       }
     };
-
     function t(key){ return I18N[LANG][key] ?? key; }
-
-    function applyLang() {
-      document.getElementById('navTools').textContent = t('navTools');
-      document.getElementById('navPrivacy').textContent = t('navPrivacy');
-      document.getElementById('mainTitle').textContent = t('mainTitle');
-      document.getElementById('mainSubtitle').textContent = t('subtitle');
-      document.getElementById('selectBtn').textContent = t('selectFile');
-      document.getElementById('dropHint').textContent = t('dropHint');
-      document.getElementById('backLabel').textContent = t('back');
-      document.getElementById('previewBtn').textContent = t('preview');
-      document.getElementById('processBtn').textContent = t('process');
-      document.getElementById('translateBtn').textContent = LANG === 'es' ? 'EN' : 'ES';
-      renderTools();
-      if (!currentFiles.length) resetLog(t('startLog'));
-    }
-
-    document.getElementById('translateBtn').addEventListener('click', () => {
-      LANG = LANG === 'es' ? 'en' : 'es';
-      applyLang();
-    });
-
-    // =========
-    // Tools (cards like iLovePDF)
-    // =========
-    // mode:
-    // - replace: string replace on text cells
-    // - trim / collapseSpaces: text transforms
-    // - scale: divide numeric cells (and numeric-looking strings) by divisor
-    // - unifySheets: smart unify all sheets into one sheet "replaceit"
-    // - splitSheets: split each sheet into its own Excel (zip)
-    const TOOLS = [
-      {
-        id:'dot2comma',
-        badge:'. → ,',
-        title:{es:'Punto → Coma', en:'Dot → Comma'},
-        desc:{es:'Reemplaza "." por "," en celdas de texto.', en:'Replace "." with "," in text cells.'},
-        tip:{
-          es:'Convierte puntos por comas en <b>texto</b>. Útil cuando pegás datos con separadores “mal” en reports.',
-          en:'Replaces dots with commas in <b>text</b>. Useful for imported reports with wrong separators.'
-        },
-        mode:'replace', find:'.', replace:','
-      },
-      {
-        id:'comma2dot',
-        badge:', → .',
-        title:{es:'Coma → Punto', en:'Comma → Dot'},
-        desc:{es:'Reemplaza "," por "." en celdas de texto.', en:'Replace "," with "." in text cells.'},
-        tip:{
-          es:'Convierte comas por puntos en <b>texto</b>. Perfecto para exports que vienen en formato ES y querés EN.',
-          en:'Replaces commas with dots in <b>text</b>. Great to switch ES-style exports to EN.'
-        },
-        mode:'replace', find:',', replace:'.'
-      },
-      {
-        id:'removeDollar',
-        badge:'$ → (vacío)',
-        title:{es:'Quitar $', en:'Remove $'},
-        desc:{es:'Elimina el símbolo "$" en celdas de texto.', en:'Remove "$" from text cells.'},
-        tip:{
-          es:'Saca el símbolo <b>$</b> en texto para dejar solo el número/valor y poder analizar mejor.',
-          en:'Removes the <b>$</b> symbol from text so you can analyze values more easily.'
-        },
-        mode:'replace', find:'$', replace:''
-      },
-      {
-        id:'dollarToUSD',
-        badge:'$ → USD',
-        title:{es:'$ → USD', en:'$ → USD'},
-        desc:{es:'Reemplaza "$" por "USD" en celdas de texto.', en:'Replace "$" with "USD" in text cells.'},
-        tip:{
-          es:'Convierte “$” a <b>USD</b> en texto, ideal para reporting y consistencia de moneda.',
-          en:'Converts “$” to <b>USD</b> in text for consistent reporting.'
-        },
-        mode:'replace', find:'$', replace:'USD'
-      },
-      {
-        id:'spaceTrim',
-        badge:'trim()',
-        title:{es:'Trim espacios', en:'Trim spaces'},
-        desc:{es:'Quita espacios al inicio/fin en celdas de texto.', en:'Trim leading/trailing spaces.'},
-        tip:{
-          es:'Elimina espacios “invisibles” que rompen búsquedas, VLOOKUP, joins y filtros.',
-          en:'Removes invisible spaces that break lookups, joins, filters and searches.'
-        },
-        mode:'trim'
-      },
-      {
-        id:'spaceNorm',
-        badge:'spaces→1',
-        title:{es:'Normalizar espacios', en:'Normalize spaces'},
-        desc:{es:'Convierte múltiples espacios/tabs en un solo espacio.', en:'Collapse multiple spaces/tabs into one.'},
-        tip:{
-          es:'Deja el texto prolijo: múltiples espacios/tabs → 1 espacio. Muy útil para listas pegadas.',
-          en:'Cleans messy text: multiple spaces/tabs → single space. Great for pasted lists.'
-        },
-        mode:'collapseSpaces'
-      },
-
-      // scale tools as CARDS
-      {
-        id:'scale1000',
-        badge:'/ 1.000',
-        title:{es:'Escalar a miles', en:'Scale to thousands'},
-        desc:{es:'Divide todos los números por 1.000.', en:'Divide all numbers by 1,000.'},
-        tip:{
-          es:'Convierte montos grandes a miles. Ej: <b>1.000.000 → 1.000</b>. Ideal para dashboards.',
-          en:'Converts large values to thousands. Ex: <b>1,000,000 → 1,000</b>. Great for dashboards.'
-        },
-        mode:'scale', divisor:1000
-      },
-      {
-        id:'scale10000',
-        badge:'/ 10.000',
-        title:{es:'Escalar a diez miles', en:'Scale to ten-thousands'},
-        desc:{es:'Divide todos los números por 10.000.', en:'Divide all numbers by 10,000.'},
-        tip:{
-          es:'Convierte montos grandes a 10.000. Ej: <b>1.000.000 → 100</b>. Útil para resúmenes.',
-          en:'Converts values to ten-thousands. Ex: <b>1,000,000 → 100</b>. Useful for summaries.'
-        },
-        mode:'scale', divisor:10000
-      },
-
-      // unify sheets into one
-      {
-        id:'unifySheets',
-        badge:'7 sheets → 1',
-        title:{es:'Unificar hojas (smart)', en:'Unify sheets (smart)'},
-        desc:{es:'Une todas las hojas en una sola, alineando por headers.', en:'Merge all sheets into one, aligned by headers.'},
-        tip:{
-          es:'Si tu Excel tiene varias hojas, las unifica en una sola hoja llamada <b>replaceit</b>.\nRespeta headers aunque estén en otra columna.',
-          en:'If your Excel has multiple sheets, it merges them into one sheet named <b>replaceit</b>, aligning by headers.'
-        },
-        mode:'unifySheets'
-      },
-
-      // split sheets into multiple Excels
-      {
-        id:'splitSheets',
-        badge:'1 → N excels',
-        title:{es:'Separar hojas', en:'Split sheets'},
-        desc:{es:'Crea un Excel por cada hoja y descarga un ZIP.', en:'Creates one Excel per sheet and downloads a ZIP.'},
-        tip:{
-          es:'Si recibís un Excel con 9 hojas, te crea <b>9 Excels</b> (uno por hoja) y te los baja en ZIP.',
-          en:'If you receive an Excel with 9 sheets, it creates <b>9 Excel files</b> (one per sheet) in a ZIP.'
-        },
-        mode:'splitSheets'
-      }
-    ];
 
     // DOM refs
     const homeView = document.getElementById('homeView');
@@ -515,6 +402,158 @@
         .replaceAll('&','&amp;').replaceAll('<','&lt;')
         .replaceAll('>','&gt;').replaceAll('"','&quot;');
     }
+    function resetLog(msg){ logBox.textContent = msg || ''; }
+    function log(msg){ logBox.textContent += `\n${msg}`; logBox.scrollTop = logBox.scrollHeight; }
+    function humanSize(bytes){
+      const units=['B','KB','MB','GB'];
+      let i=0,n=bytes;
+      while(n>=1024 && i<units.length-1){ n/=1024; i++; }
+      return `${n.toFixed(i===0?0:1)} ${units[i]}`;
+    }
+
+    // =========
+    // Tools list
+    // =========
+    const TOOLS = [
+      {
+        id:'dot2comma',
+        badge:'. → ,',
+        title:{es:'Punto → Coma', en:'Dot → Comma'},
+        desc:{es:'Reemplaza "." por "," en celdas de texto.', en:'Replace "." with "," in text cells.'},
+        tip:{
+          es:'Convierte puntos por comas en <b>texto</b>. Útil cuando pegás datos con separadores “mal” en reports.',
+          en:'Replaces dots with commas in <b>text</b>. Useful for imported reports with wrong separators.'
+        },
+        mode:'replace', find:'.', replace:','
+      },
+      {
+        id:'comma2dot',
+        badge:', → .',
+        title:{es:'Coma → Punto', en:'Comma → Dot'},
+        desc:{es:'Reemplaza "," por "." en celdas de texto.', en:'Replace "," with "." in text cells.'},
+        tip:{
+          es:'Convierte comas por puntos en <b>texto</b>. Perfecto para exports que vienen en formato ES y querés EN.',
+          en:'Replaces commas with dots in <b>text</b>. Great to switch ES-style exports to EN.'
+        },
+        mode:'replace', find:',', replace:'.'
+      },
+      {
+        id:'removeDollar',
+        badge:'$ → (vacío)',
+        title:{es:'Quitar $', en:'Remove $'},
+        desc:{es:'Elimina el símbolo "$" en celdas de texto.', en:'Remove "$" from text cells.'},
+        tip:{
+          es:'Saca el símbolo <b>$</b> en texto para dejar solo el valor y poder analizar mejor.',
+          en:'Removes the <b>$</b> symbol from text so you can analyze values more easily.'
+        },
+        mode:'replace', find:'$', replace:''
+      },
+      {
+        id:'dollarToUSD',
+        badge:'$ → USD',
+        title:{es:'$ → USD', en:'$ → USD'},
+        desc:{es:'Reemplaza "$" por "USD" en celdas de texto.', en:'Replace "$" with "USD" in text cells.'},
+        tip:{
+          es:'Convierte “$” a <b>USD</b> en texto, ideal para reporting y consistencia de moneda.',
+          en:'Converts “$” to <b>USD</b> in text for consistent reporting.'
+        },
+        mode:'replace', find:'$', replace:'USD'
+      },
+      {
+        id:'spaceTrim',
+        badge:'trim()',
+        title:{es:'Trim espacios', en:'Trim spaces'},
+        desc:{es:'Quita espacios al inicio/fin en celdas de texto.', en:'Trim leading/trailing spaces.'},
+        tip:{
+          es:'Elimina espacios invisibles que rompen búsquedas, VLOOKUP, joins y filtros.',
+          en:'Removes invisible spaces that break lookups, joins, filters and searches.'
+        },
+        mode:'trim'
+      },
+      {
+        id:'spaceNorm',
+        badge:'spaces→1',
+        title:{es:'Normalizar espacios', en:'Normalize spaces'},
+        desc:{es:'Convierte múltiples espacios/tabs en un solo espacio.', en:'Collapse multiple spaces/tabs into one.'},
+        tip:{
+          es:'Deja el texto prolijo: múltiples espacios/tabs → 1 espacio.',
+          en:'Cleans messy text: multiple spaces/tabs → single space.'
+        },
+        mode:'collapseSpaces'
+      },
+      {
+        id:'scale1000',
+        badge:'/ 1.000',
+        title:{es:'Escalar a miles', en:'Scale to thousands'},
+        desc:{es:'Divide todos los números por 1.000.', en:'Divide all numbers by 1,000.'},
+        tip:{
+          es:'Convierte montos grandes a miles. Ej: <b>1.000.000 → 1.000</b>.',
+          en:'Converts large values to thousands. Ex: <b>1,000,000 → 1,000</b>.'
+        },
+        mode:'scale', divisor:1000
+      },
+      {
+        id:'scale10000',
+        badge:'/ 10.000',
+        title:{es:'Escalar a diez miles', en:'Scale to ten-thousands'},
+        desc:{es:'Divide todos los números por 10.000.', en:'Divide all numbers by 10,000.'},
+        tip:{
+          es:'Convierte montos grandes a 10.000. Ej: <b>1.000.000 → 100</b>.',
+          en:'Converts values to ten-thousands. Ex: <b>1,000,000 → 100</b>.'
+        },
+        mode:'scale', divisor:10000
+      },
+      {
+        id:'unifySheets',
+        badge:'7 sheets → 1',
+        title:{es:'Unificar hojas (smart)', en:'Unify sheets (smart)'},
+        desc:{es:'Une todas las hojas en una sola, alineando por headers.', en:'Merge all sheets into one, aligned by headers.'},
+        tip:{
+          es:'Une todas las hojas en una sola llamada <b>replaceit</b>. Alinea columnas por encabezados aunque estén en distinto lugar.',
+          en:'Merges all sheets into one named <b>replaceit</b>. Aligns columns by headers even if they shift.'
+        },
+        mode:'unifySheets'
+      },
+      {
+        id:'splitSheets',
+        badge:'1 → N excels',
+        title:{es:'Separar hojas', en:'Split sheets'},
+        desc:{es:'Crea un Excel por cada hoja y descarga un ZIP.', en:'Creates one Excel per sheet and downloads a ZIP.'},
+        tip:{
+          es:'Si tu Excel tiene 9 hojas, crea <b>9 Excels</b> (uno por hoja) y descarga un ZIP.',
+          en:'If your Excel has 9 sheets, it creates <b>9 Excel files</b> (one per sheet) and downloads a ZIP.'
+        },
+        mode:'splitSheets'
+      }
+    ];
+
+    // =========
+    // i18n + render
+    // =========
+    function applyLang() {
+      document.getElementById('navTools').textContent = t('navTools');
+      document.getElementById('navPrivacy').textContent = t('navPrivacy');
+      document.getElementById('mainTitle').textContent = t('mainTitle');
+      document.getElementById('mainSubtitle').textContent = t('subtitle');
+      document.getElementById('selectBtn').textContent = t('selectFile');
+      document.getElementById('dropHint').textContent = t('dropHint');
+      document.getElementById('backLabel').textContent = t('back');
+      previewBtn.textContent = t('preview');
+      processBtn.textContent = t('process');
+      document.getElementById('translateBtn').textContent = LANG === 'es' ? 'EN' : 'ES';
+      renderTools();
+
+      if (!currentFiles.length) {
+        // show libs status message
+        if (window.__LIBS_READY__ && typeof XLSX !== 'undefined') resetLog(t('libsReady'));
+        else resetLog(t('libsLoading'));
+      }
+    }
+
+    document.getElementById('translateBtn').addEventListener('click', () => {
+      LANG = LANG === 'es' ? 'en' : 'es';
+      applyLang();
+    });
 
     function renderTools(){
       toolsGrid.innerHTML = TOOLS.map(tool => {
@@ -526,7 +565,6 @@
             <div class="tool-tag"><span class="dot"></span><span class="small">${escapeHtml(tool.badge || '')}</span></div>
             <div class="tool-title">${escapeHtml(title)}</div>
             <div class="tool-desc">${escapeHtml(desc)}</div>
-
             <div class="tooltip-oncard">
               <b>${escapeHtml(title)}</b><br/>
               ${tip}
@@ -537,23 +575,18 @@
       }).join('');
     }
 
-    function resetLog(msg){ logBox.textContent = msg || ''; }
-    function log(msg){ logBox.textContent += `\n${msg}`; logBox.scrollTop = logBox.scrollHeight; }
-
-    function humanSize(bytes){
-      const units=['B','KB','MB','GB'];
-      let i=0,n=bytes;
-      while(n>=1024 && i<units.length-1){ n/=1024; i++; }
-      return `${n.toFixed(i===0?0:1)} ${units[i]}`;
-    }
-
+    // =========
     // navigation
+    // =========
     window.goHome = () => {
       toolView.classList.remove('active');
       homeView.classList.add('active');
       currentFiles = [];
       currentTool = null;
       fileInput.value = '';
+      filepill.style.display = 'none';
+      processBtn.disabled = true;
+      resetLog(window.__LIBS_READY__ && typeof XLSX !== 'undefined' ? t('libsReady') : t('libsLoading'));
       window.scrollTo({top:0, behavior:'smooth'});
     };
 
@@ -573,7 +606,9 @@
       window.scrollTo({top:0, behavior:'smooth'});
     };
 
+    // =========
     // file selection
+    // =========
     selectBtn.onclick = () => fileInput.click();
     changeBtn.onclick = () => fileInput.click();
     fileInput.addEventListener('change', (e) => setFile(e.target.files?.[0]));
@@ -603,13 +638,36 @@
       const dt = e.dataTransfer;
       if(dt && dt.files && dt.files.length){
         const f = dt.files[0];
-        fileInput.files = dt.files; // best effort
         setFile(f);
       }
     });
 
     // =========
-    // Helpers for transformations
+    // Guards (avoid XLSX not defined)
+    // =========
+    function libsOk(){
+      return typeof XLSX !== 'undefined' && typeof JSZip !== 'undefined' && typeof saveAs !== 'undefined';
+    }
+    function guardLibs(){
+      if (!libsOk()){
+        resetLog(t('libsError'));
+        log('Detalle técnico:');
+        log(`XLSX: ${typeof XLSX}`);
+        log(`JSZip: ${typeof JSZip}`);
+        log(`saveAs: ${typeof saveAs}`);
+        return false;
+      }
+      return true;
+    }
+
+    // wait libs-ready event then update log
+    window.addEventListener('libs-ready', () => {
+      if (libsOk()) resetLog(t('libsReady'));
+      else resetLog(t('libsError'));
+    });
+
+    // =========
+    // Transforms helpers
     // =========
     function applyTextReplace(s, tool){
       if (tool.mode === 'trim') return s.trim();
@@ -628,19 +686,15 @@
       const t = s.trim();
       if (t === '') return null;
 
-      // remove currency/symbols/letters; keep digits, comma, dot, minus
       let cleaned = t.replace(/[^\d\-,.]/g,'').replace(/\s+/g,'');
-      if (cleaned === '' || cleaned === '-' ) return null;
+      if (cleaned === '' || cleaned === '-') return null;
 
-      // normalize:
-      // if has both '.' and ',' assume '.' thousands and ',' decimal
       let normalized = cleaned;
       if (normalized.includes('.') && normalized.includes(',')){
         normalized = normalized.replace(/\./g,'').replace(',', '.');
       } else if (normalized.includes(',') && !normalized.includes('.')){
         normalized = normalized.replace(',', '.');
       } else {
-        // only dots -> assume thousands separators (remove)
         normalized = normalized.replace(/\./g,'');
       }
 
@@ -672,8 +726,7 @@
     // Smart unify sheets (heuristic)
     // =========
     function sheetToAOA(ws){
-      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false, raw:true});
-      return aoa;
+      return XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false, raw:true});
     }
 
     function normalizeHeader(h){
@@ -719,7 +772,7 @@
 
     function unifyWorkbookSheets(wb){
       const allNormHeaders = new Map(); // norm -> origName
-      const tables = []; // {sheetName, headerMap, dataRows}
+      const tables = [];
 
       for (const sn of wb.SheetNames){
         const ws = wb.Sheets[sn];
@@ -774,7 +827,7 @@
     }
 
     // =========
-    // Split sheets into multiple Excels
+    // Split sheets into ZIP of Excels
     // =========
     function splitWorkbookToZip(wb, originalName){
       const zip = new JSZip();
@@ -783,6 +836,7 @@
       for (const sn of wb.SheetNames){
         const ws = wb.Sheets[sn];
         if (!ws) continue;
+
         const newWb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(newWb, ws, sn.substring(0, 31));
 
@@ -798,6 +852,8 @@
     // =========
     previewBtn.onclick = async () => {
       if (!currentFiles.length || !currentTool) return;
+      if (!guardLibs()) return;
+
       resetLog(t('previewing'));
 
       try{
@@ -813,7 +869,6 @@
           }
           log(`Unified preview: columns=${res.cols}, rows=${res.rows}`);
           log(`Output sheet name: replaceit`);
-          log(`Click "${t('process')}" to download.`);
           return;
         }
 
@@ -863,6 +918,7 @@
             }
           }
         }
+
         log(`Preview changes (sample): ${changed}`);
         if (examples.length){
           log(`Examples:\n- ${examples.join('\n- ')}`);
@@ -878,6 +934,8 @@
 
     processBtn.onclick = async () => {
       if (!currentFiles.length || !currentTool) return;
+      if (!guardLibs()) return;
+
       processBtn.disabled = true;
       previewBtn.disabled = true;
       resetLog(t('processing'));
@@ -887,29 +945,27 @@
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, {type:'array'});
 
-        // 1) Unify sheets → one sheet "replaceit"
+        // unify sheets
         if (currentTool.mode === 'unifySheets'){
           const res = unifyWorkbookSheets(wb);
           if (!res.ok){
             log(t('noChanges'));
-            processBtn.disabled = false; previewBtn.disabled = false;
             return;
           }
-
           const newWb = XLSX.utils.book_new();
           const wsOut = XLSX.utils.aoa_to_sheet(res.aoa);
           XLSX.utils.book_append_sheet(newWb, wsOut, 'replaceit');
+
           const outBuf = XLSX.write(newWb, {bookType:'xlsx', type:'array'});
           const outName = file.name.replace(/\.xlsx$/i,'') + ' - unify.xlsx';
           saveAs(new Blob([outBuf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName);
 
           log(`Unified: cols=${res.cols}, rows=${res.rows}`);
           log(t('done'));
-          processBtn.disabled = false; previewBtn.disabled = false;
           return;
         }
 
-        // 2) Split sheets → ZIP with one Excel per sheet
+        // split sheets
         if (currentTool.mode === 'splitSheets'){
           const zip = splitWorkbookToZip(wb, file.name);
           log(`Sheets: ${wb.SheetNames.length}`);
@@ -918,11 +974,10 @@
           const outName = file.name.replace(/\.xlsx$/i,'') + ' - split_sheets.zip';
           saveAs(zipBlob, outName);
           log(t('done'));
-          processBtn.disabled = false; previewBtn.disabled = false;
           return;
         }
 
-        // 3) Scale numbers (whole workbook)
+        // scale
         if (currentTool.mode === 'scale'){
           let changed = 0;
           for (const sn of wb.SheetNames){
@@ -934,8 +989,7 @@
                 const addr = XLSX.utils.encode_cell({r:R,c:C});
                 const cell = ws[addr];
                 if (!cell) continue;
-                const ok = scaleCellValue(cell, currentTool.divisor);
-                if (ok) changed++;
+                if (scaleCellValue(cell, currentTool.divisor)) changed++;
               }
             }
           }
@@ -944,11 +998,10 @@
           saveAs(new Blob([outBuf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName);
           log(`Cells scaled: ${changed}`);
           log(t('done'));
-          processBtn.disabled = false; previewBtn.disabled = false;
           return;
         }
 
-        // 4) Text replace/trim/collapseSpaces (whole workbook, only strings)
+        // text transforms
         let changed = 0;
         for (const sn of wb.SheetNames){
           const ws = wb.Sheets[sn];
@@ -975,6 +1028,7 @@
         const outBuf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
         const outName = file.name.replace(/\.xlsx$/i,'') + ` - ${currentTool.id}.xlsx`;
         saveAs(new Blob([outBuf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName);
+
         log(`Cells changed: ${changed}`);
         log(t('done'));
 
@@ -987,6 +1041,7 @@
     };
 
     // init
+    resetLog(t('libsLoading'));
     applyLang();
   </script>
 </body>
