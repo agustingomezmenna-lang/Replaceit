@@ -1,1048 +1,1356 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Replaceit — Excel Tools</title>
-  <meta name="description" content="Herramientas para solucionarte el día a día en tu trabajo. Subís un .xlsx, aplicás la acción, y descargás!" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Replaceit</title>
 
-  <!-- FAVICON (RI blanco sobre fondo azul) -->
-  <link rel="icon" type="image/svg+xml"
-    href='data:image/svg+xml;utf8,
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-      <rect width="64" height="64" rx="14" fill="%230b5cff"/>
-      <text x="50%25" y="54%25" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800" fill="white">RI</text>
-    </svg>' />
+  <!--
+    ✅ Robust local loader:
+    - Tries multiple filenames (supports accidental ".js.js")
+    - Avoids CDN (works better with AdBlock / corporate networks)
+  -->
+  <script>
+    (function () {
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.onload = () => resolve(src);
+          s.onerror = () => reject(new Error("Failed to load: " + src));
+          document.head.appendChild(s);
+        });
+      }
+
+      async function loadFirstThatWorks(candidates) {
+        let lastErr = null;
+        for (const c of candidates) {
+          try {
+            await loadScript(c);
+            return c;
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        throw lastErr || new Error("No candidates worked");
+      }
+
+      // Expose a promise we can await later
+      window.__LIBS_READY__ = (async () => {
+        // JSZip
+        await loadFirstThatWorks([
+          "./libs/jszip.min.js",
+          "./libs/jszip.min.js.js",
+          "./libs/JSZip.min.js",
+          "./libs/JSZip.min.js.js"
+        ]);
+
+        // FileSaver (saveAs)
+        await loadFirstThatWorks([
+          "./libs/FileSaver.min.js",
+          "./libs/FileSaver.min.js.js",
+          "./libs/filesaver.min.js",
+          "./libs/filesaver.min.js.js"
+        ]);
+
+        // XLSX
+        await loadFirstThatWorks([
+          "./libs/xlsx.full.min.js",
+          "./libs/xlsx.full.min.js.js",
+          "./libs/xlsx.min.js",
+          "./libs/xlsx.min.js.js",
+          "./libs/core.min.js",
+          "./libs/core.min.js.js"
+        ]);
+
+        return true;
+      })();
+    })();
+  </script>
 
   <style>
     :root{
-      --bg:#f3f4f6;
+      --bg:#f4f6fb;
       --card:#ffffff;
       --text:#111827;
       --muted:#6b7280;
       --border:#e5e7eb;
-      --shadow: 0 10px 35px rgba(0,0,0,.08);
-      --blue:#0b5cff;
-      --blueDark:#0847c7;
-      --focus:#2563eb;
-      --radius:18px;
+      --shadow: 0 18px 50px rgba(17,24,39,.10);
+      --shadow2: 0 12px 30px rgba(17,24,39,.12);
+      --blue:#2563eb;
+      --blue2:#1d4ed8;
+      --navH: 72px;
+      --radius: 18px;
     }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--text);background:var(--bg)}
-    a{color:inherit;text-decoration:none}
 
-    /* Top bar */
-    .topbar{background:#fff;border-bottom:1px solid var(--border)}
-    .topbar-inner{max-width:1100px;margin:0 auto;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px}
-    .brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.2px;cursor:pointer}
-    .brand-badge{
-      width:34px;height:34px;border-radius:12px;
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text);
+      background: radial-gradient(1200px 600px at 50% 0%, #ffffff 0%, var(--bg) 60%);
+    }
+
+    /* Top nav */
+    .nav{
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: var(--navH);
+      background: rgba(255,255,255,.82);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(229,231,235,.9);
+      display:flex;
+      align-items:center;
+    }
+
+    .nav-inner{
+      width: min(1200px, calc(100% - 40px));
+      margin: 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 16px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      user-select:none;
+    }
+
+    .logo{
+      width:44px;height:44px;
+      border-radius: 14px;
       background: var(--blue);
       display:grid;place-items:center;
-      color:#fff;font-size:14px;font-weight:900;
+      color:white;
+      font-weight: 900;
+      letter-spacing:.5px;
+      box-shadow: 0 10px 24px rgba(37,99,235,.25);
     }
-    .nav{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:13px}
-    .nav a:hover{color:var(--text)}
-    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 60px}
 
-    /* buttons */
-    .linkbtn{
+    .brand-name{
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing:-.3px;
+    }
+
+    .nav-right{
+      display:flex;
+      align-items:center;
+      gap: 18px;
+    }
+
+    .nav-link{
+      color: var(--muted);
+      text-decoration:none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .nav-link:hover{ color: var(--text); }
+
+    .pill{
       border:1px solid var(--border);
-      background:#fff;border-radius:12px;
-      padding:10px 12px;cursor:pointer;font-weight:800;
-      color:var(--text);
+      background: white;
+      padding: 10px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor:pointer;
+      user-select:none;
     }
-    .linkbtn:hover{border-color:#cbd5e1}
+    .pill:hover{ border-color:#cbd5e1; }
 
-    /* tooltip (nav / contact) */
-    .tipwrap{ position:relative; display:inline-flex; }
-    .tip{
-      position:absolute;
-      top: calc(100% + 10px);
-      right: 0;
-      width: min(360px, 80vw);
-      background:#0b1220;
-      color:#e5e7eb;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:14px;
-      padding:12px 12px;
-      box-shadow: 0 18px 45px rgba(0,0,0,.25);
-      font-size:13px;
-      line-height:1.35;
-      opacity:0;
-      transform: translateY(-6px);
-      pointer-events:none;
-      transition: .12s ease;
-      z-index:999;
+    .btn{
+      border:1px solid var(--border);
+      background: white;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor:pointer;
+      user-select:none;
+      position:relative;
     }
-    .tip b{color:#fff}
-    .tip .mini{ color:#a7b0c0; font-size:12px; margin-top:6px }
-    .tipwrap:hover .tip{ opacity:1; transform:translateY(0); }
-    .tip:before{
+    .btn:hover{ border-color:#cbd5e1; }
+
+    /* Tooltip "ahead" */
+    .tooltip{
+      position:absolute;
+      top: 120%;
+      right: 0;
+      width: min(420px, 80vw);
+      background: #0b1220;
+      color: white;
+      border-radius: 14px;
+      padding: 14px 14px;
+      box-shadow: 0 22px 60px rgba(0,0,0,.35);
+      display:none;
+    }
+    .tooltip::before{
       content:"";
       position:absolute;
-      top:-7px;
-      right:18px;
-      width:12px;height:12px;
-      background:#0b1220;
-      border-left:1px solid rgba(255,255,255,.08);
-      border-top:1px solid rgba(255,255,255,.08);
-      transform: rotate(45deg);
+      top:-8px;
+      right: 22px;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #0b1220;
+    }
+    .btn:hover .tooltip{ display:block; }
+
+    .tooltip h4{
+      margin:0 0 6px 0;
+      font-size: 14px;
+      letter-spacing:.2px;
+    }
+    .tooltip p{
+      margin:0;
+      color: rgba(255,255,255,.82);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .tooltip .email{
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      font-weight: 700;
+    }
+    .tooltip .email a{
+      color: white;
+      text-decoration: none;
+      font-weight: 900;
+      white-space:nowrap;
     }
 
-    /* Views */
-    .view{display:none}
-    .view.active{display:block}
+    /* Page layout */
+    .wrap{
+      width: min(1200px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 42px 0 48px;
+    }
 
-    /* Home */
-    .hero{text-align:center;margin-top:18px}
-    h1{margin:0;font-size:56px;letter-spacing:-1px}
-    .subtitle{margin:10px auto 0;max-width:820px;color:var(--muted);font-size:18px;line-height:1.5}
+    .hero{
+      text-align:center;
+      margin: 44px 0 32px;
+    }
+    .hero h1{
+      font-size: clamp(38px, 6vw, 64px);
+      margin:0;
+      letter-spacing:-1.5px;
+      font-weight: 900;
+    }
+    .hero p{
+      margin: 14px auto 0;
+      max-width: 850px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+      font-weight: 600;
+    }
 
-    .tools{
-      margin:26px auto 0;
-      max-width:980px;
+    .grid{
       display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      gap:14px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 34px;
     }
-    @media (max-width: 980px){ .tools{grid-template-columns:1fr 1fr} }
-    @media (max-width: 640px){ h1{font-size:42px} .tools{grid-template-columns:1fr} }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
 
-    .tool{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:18px;
-      box-shadow: var(--shadow);
-      padding:16px;
+    .card{
+      background: var(--card);
+      border: 1px solid rgba(229,231,235,.95);
+      border-radius: 22px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 14px 44px rgba(17,24,39,.08);
       cursor:pointer;
-      transition:.12s transform, .12s border-color;
-      display:flex;flex-direction:column;gap:10px;
-      min-height:128px;
       position:relative;
-      overflow: visible;
+      overflow:hidden;
+      min-height: 132px;
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
     }
-    .tool:hover{transform:translateY(-1px);border-color:#d1d5db}
-    .tool-title{font-weight:900;font-size:16px}
-    .tool-desc{color:var(--muted);font-size:13px;line-height:1.4}
-    .tool-tag{display:inline-flex;align-items:center;gap:8px;color:#0f172a;font-size:12px}
-    .dot{
-      width:10px;height:10px;border-radius:999px;background:var(--blue);
-      box-shadow:0 0 0 4px rgba(11,92,255,.12);
+    .card:hover{
+      transform: translateY(-2px);
+      border-color: rgba(203,213,225,.95);
+      box-shadow: 0 18px 60px rgba(17,24,39,.12);
     }
 
-    /* tooltip on card (always above) */
-    .tooltip-oncard{
-      position:absolute;
-      left:14px;
-      bottom:calc(100% + 10px);
-      width:min(420px, 86vw);
-      background:#0b1220;
-      color:#e5e7eb;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:14px;
-      padding:12px 12px;
-      box-shadow: 0 18px 45px rgba(0,0,0,.25);
-      font-size:13px;
+    .chip{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--blue);
+      box-shadow: 0 0 0 4px rgba(37,99,235,.15);
+    }
+
+    .card h3{
+      margin: 12px 0 6px;
+      font-size: 22px;
+      letter-spacing:-.4px;
+    }
+    .card p{
+      margin:0;
+      color: var(--muted);
+      font-weight: 650;
       line-height:1.35;
+    }
+
+    /* Hover details for cards (no "Tip:", just actionables) */
+    .card .hover-info{
+      position:absolute;
+      left: 16px;
+      right: 16px;
+      top: 16px;
+      background: #0b1220;
+      color: white;
+      border-radius: 16px;
+      padding: 14px 14px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.35);
       opacity:0;
       transform: translateY(6px);
       pointer-events:none;
-      transition:.12s ease;
-      z-index:999;
+      transition: opacity .12s ease, transform .12s ease;
+      z-index: 5;
     }
-    .tool:hover .tooltip-oncard{ opacity:1; transform:translateY(0); }
-    .tooltip-oncard b{color:#fff}
-    .tooltip-oncard .mini{color:#a7b0c0;font-size:12px;margin-top:6px}
-    .tooltip-oncard:before{
-      content:"";
-      position:absolute;
-      bottom:-7px;
-      left:22px;
-      width:12px;height:12px;
-      background:#0b1220;
-      border-right:1px solid rgba(255,255,255,.08);
-      border-bottom:1px solid rgba(255,255,255,.08);
-      transform: rotate(45deg);
+    .card:hover .hover-info{
+      opacity:1;
+      transform: translateY(0px);
+    }
+    .hover-info .title{
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .hover-info .list{
+      margin:0;
+      padding-left: 18px;
+      color: rgba(255,255,255,.85);
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 650;
     }
 
-    /* Tool page */
-    .toolpage{margin:18px auto 0;max-width:860px}
-    .backrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-    .backbtn{border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 12px;font-weight:900;cursor:pointer}
-    .backbtn:hover{border-color:#cbd5e1}
-    .toolhead{text-align:center;margin-top:6px}
-    .toolhead h2{margin:0;font-size:44px;letter-spacing:-.6px}
-    .toolhead p{margin:10px auto 0;max-width:760px;color:var(--muted);font-size:16px;line-height:1.5}
+    /* Action page */
+    .back{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: white;
+      font-weight: 900;
+      cursor:pointer;
+      width: fit-content;
+      user-select:none;
+    }
+    .back:hover{ border-color:#cbd5e1; }
 
-    .uploader{margin:22px auto 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px}
-    .dropzone{border:2px dashed #d1d5db;border-radius:16px;padding:26px;background:#fafafa;display:flex;flex-direction:column;align-items:center;gap:14px;transition:.12s border-color, .12s background}
-    .dropzone.dragover{border-color:var(--focus);background:#eff6ff}
-    .bigbtn{background:var(--blue);color:#fff;border:none;border-radius:14px;padding:16px 22px;font-weight:900;font-size:18px;cursor:pointer;box-shadow:0 8px 18px rgba(11,92,255,.22)}
-    .bigbtn:hover{background:var(--blueDark)}
-    .bigbtn:disabled{opacity:.55;cursor:not-allowed}
-    .hint{color:var(--muted);font-size:14px}
-    #fileInput{display:none}
+    .action-title{
+      text-align:center;
+      margin: 18px 0 8px;
+      font-size: clamp(34px, 5vw, 58px);
+      letter-spacing:-1.2px;
+      font-weight: 950;
+    }
+    .action-sub{
+      text-align:center;
+      color: var(--muted);
+      font-weight: 650;
+      font-size: 18px;
+      margin: 0 0 26px;
+    }
 
-    .filepill{display:none;margin-top:10px;width:100%;border:1px solid var(--border);border-radius:14px;padding:12px 14px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px}
-    .filepill-left{display:flex;flex-direction:column;gap:4px;overflow:hidden}
-    .filepill b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .small{font-size:12px;color:var(--muted)}
-    .actions{margin-top:14px;display:flex;justify-content:flex-end;gap:10px}
-    .ghost{background:#fff;border:1px solid var(--border);color:var(--text);border-radius:14px;padding:12px 16px;font-weight:900;cursor:pointer}
-    .ghost:hover{border-color:#cbd5e1}
+    .panel{
+      background: white;
+      border: 1px solid rgba(229,231,235,.95);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      max-width: 980px;
+      margin: 0 auto;
+    }
 
-    .log{margin-top:14px;background:#0b1220;color:#d1d5db;padding:12px;border-radius:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;max-height:260px;overflow:auto;white-space:pre-wrap}
+    .drop{
+      border: 2px dashed #cbd5e1;
+      border-radius: 22px;
+      padding: 34px;
+      background: #fbfdff;
+      text-align:center;
+      position:relative;
+    }
 
-    .footer{text-align:center;color:var(--muted);font-size:12px;padding:26px 18px}
+    .primary{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding: 16px 22px;
+      border-radius: 16px;
+      border: 0;
+      background: var(--blue);
+      color:white;
+      font-weight: 950;
+      font-size: 18px;
+      cursor:pointer;
+      box-shadow: 0 16px 30px rgba(37,99,235,.24);
+      transition: transform .08s ease, background .12s ease;
+    }
+    .primary:hover{ background: var(--blue2); transform: translateY(-1px); }
+
+    .hint{
+      margin-top: 12px;
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .fileRow{
+      margin: 18px auto 0;
+      max-width: 760px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 14px;
+      border: 1px solid rgba(229,231,235,.95);
+      background: white;
+      border-radius: 18px;
+      padding: 14px 16px;
+      box-shadow: 0 12px 28px rgba(17,24,39,.06);
+    }
+    .fileMeta strong{
+      display:block;
+      font-size: 20px;
+      letter-spacing:-.2px;
+    }
+    .fileMeta span{
+      color: var(--muted);
+      font-weight: 650;
+      font-size: 14px;
+    }
+    .secondary{
+      padding: 12px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: white;
+      font-weight: 900;
+      cursor:pointer;
+    }
+    .secondary:hover{ border-color:#cbd5e1; }
+
+    .actionsRow{
+      display:flex;
+      justify-content:flex-end;
+      gap: 12px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .cta{
+      padding: 14px 20px;
+      border-radius: 16px;
+      border: 0;
+      background: var(--blue);
+      color:white;
+      font-weight: 950;
+      font-size: 18px;
+      cursor:pointer;
+      box-shadow: 0 16px 30px rgba(37,99,235,.24);
+    }
+    .cta:hover{ background: var(--blue2); }
+
+    .log{
+      margin-top: 16px;
+      background: #0b1220;
+      color:white;
+      border-radius: 18px;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      white-space: pre-wrap;
+      min-height: 84px;
+      box-shadow: var(--shadow2);
+    }
+    .log .bad{ color:#ff6b6b; font-weight:900; }
+    .log .ok{ color:#7CFF9E; font-weight:900; }
+
+    .footer{
+      text-align:center;
+      color: #6b7280;
+      font-weight: 700;
+      margin-top: 26px;
+    }
   </style>
 </head>
 
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand" role="button" onclick="goHome()">
-        <div class="brand-badge">RI</div>
-        Replaceit
+  <header class="nav">
+    <div class="nav-inner">
+      <div class="brand" onclick="goHome()" style="cursor:pointer;">
+        <div class="logo">RI</div>
+        <div class="brand-name">Replaceit</div>
       </div>
 
-      <nav class="nav">
-        <a href="#" onclick="goHome(); return false;" id="navTools">Herramientas</a>
+      <div class="nav-right">
+        <a class="nav-link" href="#tools" id="navTools">Herramientas</a>
+        <a class="nav-link" href="#privacy" id="navPrivacy">Privacidad</a>
 
-        <a href="#" onclick="alert(LANG==='es' ? 'Todo se procesa en tu navegador. No subimos tus archivos.' : 'Everything runs in your browser. We do not upload your files.'); return false;" id="navPrivacy">Privacidad</a>
+        <div class="pill" id="langBtn" onclick="toggleLang()">EN</div>
 
-        <button id="translateBtn" class="linkbtn" title="English / Español">EN</button>
-
-        <span class="tipwrap">
-          <a id="contactBtn" class="linkbtn" href="mailto:agustingomezmenna@gmail.com" title="Contactar">Contact</a>
-          <div class="tip">
-            <b>Contacto</b><br/>
-            agustingomezmenna@gmail.com
-            <div class="mini"><b>Click</b> para enviar un email.</div>
+        <div class="btn" id="contactBtn">
+          <span id="contactText">Contact</span>
+          <div class="tooltip">
+            <h4 id="contactTitle">Contacto</h4>
+            <p id="contactDesc">¿Querés sugerir una herramienta o pedir una mejora?</p>
+            <div class="email">
+              <span>agustingomezmenna@gmail.com</span>
+              <a href="mailto:agustingomezmenna@gmail.com" id="contactAction">Contactar</a>
+            </div>
           </div>
-        </span>
-      </nav>
+        </div>
+      </div>
     </div>
   </header>
 
   <main class="wrap">
     <!-- HOME -->
-    <section id="homeView" class="view active">
+    <section id="homeView">
       <div class="hero">
-        <h1 id="mainTitle">Excel Tools</h1>
-        <div id="mainSubtitle" class="subtitle">
+        <h1 id="heroTitle">Excel Tools</h1>
+        <p id="heroSub">
           Herramientas para solucionarte el día a día en tu trabajo. Subís un .xlsx, aplicás la acción, y descargás!
-        </div>
+        </p>
       </div>
 
-      <div class="tools" id="toolsGrid"></div>
+      <div class="grid" id="toolsGrid"></div>
+
+      <div class="footer">© Replaceit</div>
     </section>
 
-    <!-- TOOL -->
-    <section id="toolView" class="view">
-      <div class="toolpage">
-        <div class="backrow">
-          <button class="backbtn" onclick="goHome()">← <span id="backLabel">Volver</span></button>
-          <div class="small" id="toolBadge"></div>
-        </div>
-
-        <div class="toolhead">
-          <h2 id="toolTitle">—</h2>
-          <p id="toolDesc">—</p>
-        </div>
-
-        <div class="uploader">
-          <div id="dropzone" class="dropzone">
-            <button id="selectBtn" class="bigbtn" type="button">Seleccionar archivo Excel</button>
-            <div class="hint" id="dropHint">o arrastrá y soltá el Excel aquí</div>
-            <input id="fileInput" type="file" accept=".xlsx" />
-
-            <div id="filepill" class="filepill">
-              <div class="filepill-left">
-                <b id="fileName">—</b>
-                <div id="fileMeta" class="small">—</div>
-              </div>
-              <button id="changeBtn" class="linkbtn" type="button">Cambiar</button>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button id="previewBtn" class="ghost" type="button">Previsualizar</button>
-            <button id="processBtn" class="bigbtn" type="button" disabled>Procesar</button>
-          </div>
-
-          <div id="log" class="log">Cargando librerías…</div>
-        </div>
+    <!-- ACTION -->
+    <section id="actionView" style="display:none;">
+      <div class="back" onclick="goHome()">
+        <span>←</span>
+        <span id="backText">Volver</span>
       </div>
+
+      <h2 class="action-title" id="actionTitle">Acción</h2>
+      <p class="action-sub" id="actionSubtitle">Subí un Excel y procesalo.</p>
+
+      <div class="panel">
+        <div class="drop" id="dropZone">
+          <button class="primary" id="selectBtn" type="button"></button>
+          <input id="fileInput" type="file" accept=".xlsx" style="display:none;" />
+
+          <div class="hint" id="dropHint"></div>
+
+          <div class="fileRow" id="fileRow" style="display:none;">
+            <div class="fileMeta">
+              <strong id="fileName">-</strong>
+              <span id="fileInfo">-</span>
+            </div>
+            <button class="secondary" type="button" onclick="pickFile()" id="changeBtn">Cambiar</button>
+          </div>
+        </div>
+
+        <div class="actionsRow">
+          <button class="secondary" type="button" onclick="previewFile()" id="previewBtn">Previsualizar</button>
+          <button class="cta" type="button" onclick="runTool()" id="runBtn">Procesar</button>
+        </div>
+
+        <div class="log" id="logBox"></div>
+      </div>
+
+      <div class="footer">© Replaceit</div>
     </section>
   </main>
 
-  <div class="footer">© Replaceit</div>
-
-  <!-- ========= LIBS loader with fallback ========= -->
   <script>
-    // loads external scripts with fallback between CDNs
-    function loadScript(src){
-      return new Promise((resolve, reject)=>{
-        const s=document.createElement('script');
-        s.src=src; s.async=true;
-        s.onload=resolve;
-        s.onerror=reject;
-        document.head.appendChild(s);
+    // =======================
+    // i18n
+    // =======================
+    const I18N = {
+      es: {
+        navTools: "Herramientas",
+        navPrivacy: "Privacidad",
+        contact: "Contact",
+        contactTitle: "Contacto",
+        contactDesc: "¿Querés sugerir una herramienta o pedir una mejora?",
+        contactAction: "Contactar",
+        heroTitle: "Excel Tools",
+        heroSub: "Herramientas para solucionarte el día a día en tu trabajo. Subís un .xlsx, aplicás la acción, y descargás!",
+        back: "Volver",
+        select: "Seleccionar archivo Excel",
+        dropHint: "o arrastrá y soltá el Excel aquí",
+        change: "Cambiar",
+        preview: "Previsualizar",
+        run: "Procesar",
+        processing: "Procesando…",
+        ready: "Listo ✅",
+        needFile: "Seleccioná un archivo .xlsx primero.",
+        libsFail: "No se pudieron cargar librerías (XLSX/JSZip/FileSaver). Revisá /libs y nombres.",
+        previewTitle: "Preview (primeras filas)",
+        doneDownload: "Archivo listo. Descargando…",
+        doneZip: "ZIP listo. Descargando…",
+        tools: [
+          {
+            id: "dot_comma",
+            chip: ". → ,",
+            title: "Punto → Coma",
+            desc: "Reemplaza “.” por “,” en celdas de texto.",
+            hover: [
+              "Convierte separadores decimales en texto.",
+              "No toca valores numéricos (solo texto).",
+              "Ideal para CSV/exports con formato incorrecto."
+            ],
+            actionTitle: "Punto → Coma",
+            actionSub: "Reemplaza “.” por “,” en celdas de texto en todas las hojas."
+          },
+          {
+            id: "comma_dot",
+            chip: ", → .",
+            title: "Coma → Punto",
+            desc: "Reemplaza “,” por “.” en celdas de texto.",
+            hover: [
+              "Corrige separadores en texto para formato US.",
+              "No toca valores numéricos (solo texto).",
+              "Útil para reportes que vienen con coma."
+            ],
+            actionTitle: "Coma → Punto",
+            actionSub: "Reemplaza “,” por “.” en celdas de texto en todas las hojas."
+          },
+          {
+            id: "remove_$",
+            chip: "$ → (vacío)",
+            title: "Quitar $",
+            desc: "Elimina el símbolo “$” en celdas de texto.",
+            hover: [
+              "Limpia importes pegados como texto.",
+              "Deja el resto del contenido igual.",
+              "Ideal para normalizar imports."
+            ],
+            actionTitle: "Quitar $",
+            actionSub: "Elimina “$” en texto en todas las hojas."
+          },
+          {
+            id: "usd",
+            chip: "$ → USD",
+            title: "$ → USD",
+            desc: "Reemplaza “$” por “USD” en celdas de texto.",
+            hover: [
+              "Estándar rápido de moneda en texto.",
+              "Útil para dashboards y parsing.",
+              "No altera números."
+            ],
+            actionTitle: "$ → USD",
+            actionSub: "Reemplaza “$” por “USD” en texto en todas las hojas."
+          },
+          {
+            id: "trim",
+            chip: "trim()",
+            title: "Trim espacios",
+            desc: "Quita espacios al inicio y al final en texto.",
+            hover: [
+              "Limpia “ Name ” → “Name”.",
+              "Reduce errores de matching/joins.",
+              "No altera el interior del texto."
+            ],
+            actionTitle: "Trim espacios",
+            actionSub: "Recorta espacios al inicio/fin en texto, en todas las hojas."
+          },
+          {
+            id: "normalize_spaces",
+            chip: "spaces→1",
+            title: "Normalizar espacios",
+            desc: "Convierte múltiples espacios/tabs en un solo espacio.",
+            hover: [
+              "Colapsa dobles espacios automáticamente.",
+              "Convierte tabs en un espacio.",
+              "Ideal para nombres/direcciones en texto."
+            ],
+            actionTitle: "Normalizar espacios",
+            actionSub: "Colapsa espacios y tabs múltiples en texto."
+          },
+          {
+            id: "scale_1000",
+            chip: "/ 1.000",
+            title: "Escalar a miles",
+            desc: "Divide todos los números por 1.000.",
+            hover: [
+              "1.000.000 → 1.000",
+              "Aplica a celdas numéricas en todas las hojas.",
+              "Mantiene fórmulas sin tocar (solo valores)."
+            ],
+            actionTitle: "Escalar a miles",
+            actionSub: "Divide números por 1.000 (todas las hojas)."
+          },
+          {
+            id: "scale_10000",
+            chip: "/ 10.000",
+            title: "Escalar a diez-miles",
+            desc: "Divide todos los números por 10.000.",
+            hover: [
+              "1.000.000 → 100",
+              "Aplica a celdas numéricas en todas las hojas.",
+              "Mantiene fórmulas sin tocar (solo valores)."
+            ],
+            actionTitle: "Escalar a diez-miles",
+            actionSub: "Divide números por 10.000 (todas las hojas)."
+          },
+          {
+            id: "unify_sheets",
+            chip: "N hojas → 1",
+            title: "Unificar hojas (smart)",
+            desc: "Une todas las hojas en una sola, alineando por headers.",
+            hover: [
+              "Detecta headers en la primera fila de cada hoja.",
+              "Si 'name' está en otra columna, lo alinea igual.",
+              "Salida: 1 hoja llamada “replaceit”."
+            ],
+            actionTitle: "Unificar hojas (smart)",
+            actionSub: "Une todas las hojas en 1, alineando columnas por nombre de header."
+          },
+          {
+            id: "split_sheets",
+            chip: "1 → N excels",
+            title: "Separar hojas",
+            desc: "Crea un Excel por cada hoja y descarga un ZIP.",
+            hover: [
+              "Si tenés 9 hojas → 9 excels.",
+              "Mantiene los datos de cada hoja.",
+              "Entrega un ZIP listo."
+            ],
+            actionTitle: "Separar hojas",
+            actionSub: "Crea un Excel por hoja y descarga un ZIP."
+          },
+        ]
+      },
+
+      en: {
+        navTools: "Tools",
+        navPrivacy: "Privacy",
+        contact: "Contact",
+        contactTitle: "Contact",
+        contactDesc: "Want to suggest a tool or request an improvement?",
+        contactAction: "Email",
+        heroTitle: "Excel Tools",
+        heroSub: "Tools to make your daily work easier. Upload a .xlsx, apply the action, and download!",
+        back: "Back",
+        select: "Select Excel file",
+        dropHint: "or drag & drop the Excel here",
+        change: "Change",
+        preview: "Preview",
+        run: "Process",
+        processing: "Processing…",
+        ready: "Done ✅",
+        needFile: "Please select a .xlsx file first.",
+        libsFail: "Libraries could not be loaded (XLSX/JSZip/FileSaver). Check /libs and filenames.",
+        previewTitle: "Preview (first rows)",
+        doneDownload: "File ready. Downloading…",
+        doneZip: "ZIP ready. Downloading…",
+        tools: [
+          {
+            id: "dot_comma",
+            chip: ". → ,",
+            title: "Dot → Comma",
+            desc: "Replace “.” with “,” in text cells.",
+            hover: [
+              "Converts decimal separators in text.",
+              "Does not touch numeric values (text only).",
+              "Great for exports with wrong format."
+            ],
+            actionTitle: "Dot → Comma",
+            actionSub: "Replace “.” with “,” in text cells across all sheets."
+          },
+          {
+            id: "comma_dot",
+            chip: ", → .",
+            title: "Comma → Dot",
+            desc: "Replace “,” with “.” in text cells.",
+            hover: [
+              "Fixes text separators for US format.",
+              "Does not touch numeric values (text only).",
+              "Useful when reports come with comma."
+            ],
+            actionTitle: "Comma → Dot",
+            actionSub: "Replace “,” with “.” in text cells across all sheets."
+          },
+          {
+            id: "remove_$",
+            chip: "$ → (empty)",
+            title: "Remove $",
+            desc: "Remove “$” from text cells.",
+            hover: [
+              "Cleans amounts pasted as text.",
+              "Keeps the rest untouched.",
+              "Great for normalization."
+            ],
+            actionTitle: "Remove $",
+            actionSub: "Remove “$” from text across all sheets."
+          },
+          {
+            id: "usd",
+            chip: "$ → USD",
+            title: "$ → USD",
+            desc: "Replace “$” with “USD” in text cells.",
+            hover: [
+              "Quick currency standard in text.",
+              "Helpful for parsing and dashboards.",
+              "Does not alter numbers."
+            ],
+            actionTitle: "$ → USD",
+            actionSub: "Replace “$” with “USD” in text across all sheets."
+          },
+          {
+            id: "trim",
+            chip: "trim()",
+            title: "Trim spaces",
+            desc: "Trim leading/trailing spaces in text.",
+            hover: [
+              "Cleans “ Name ” → “Name”.",
+              "Reduces matching/join issues.",
+              "Does not change inner spaces."
+            ],
+            actionTitle: "Trim spaces",
+            actionSub: "Trim leading/trailing spaces in text across all sheets."
+          },
+          {
+            id: "normalize_spaces",
+            chip: "spaces→1",
+            title: "Normalize spaces",
+            desc: "Collapse multiple spaces/tabs into one space.",
+            hover: [
+              "Collapses double spaces automatically.",
+              "Turns tabs into a single space.",
+              "Great for names/addresses in text."
+            ],
+            actionTitle: "Normalize spaces",
+            actionSub: "Collapse multiple spaces/tabs into one in text cells."
+          },
+          {
+            id: "scale_1000",
+            chip: "/ 1,000",
+            title: "Scale to thousands",
+            desc: "Divide all numbers by 1,000.",
+            hover: [
+              "1,000,000 → 1,000",
+              "Applies to numeric cells across all sheets.",
+              "Keeps formulas untouched (values only)."
+            ],
+            actionTitle: "Scale to thousands",
+            actionSub: "Divide numeric cells by 1,000 across all sheets."
+          },
+          {
+            id: "scale_10000",
+            chip: "/ 10,000",
+            title: "Scale to ten-thousands",
+            desc: "Divide all numbers by 10,000.",
+            hover: [
+              "1,000,000 → 100",
+              "Applies to numeric cells across all sheets.",
+              "Keeps formulas untouched (values only)."
+            ],
+            actionTitle: "Scale to ten-thousands",
+            actionSub: "Divide numeric cells by 10,000 across all sheets."
+          },
+          {
+            id: "unify_sheets",
+            chip: "N sheets → 1",
+            title: "Unify sheets (smart)",
+            desc: "Merge all sheets into one, aligned by headers.",
+            hover: [
+              "Reads headers from row 1 in each sheet.",
+              "Aligns columns even if positions differ.",
+              "Output: single sheet named “replaceit”."
+            ],
+            actionTitle: "Unify sheets (smart)",
+            actionSub: "Merge all sheets into one by header names."
+          },
+          {
+            id: "split_sheets",
+            chip: "1 → N excels",
+            title: "Split sheets",
+            desc: "Create one Excel per sheet and download a ZIP.",
+            hover: [
+              "If you have 9 sheets → 9 excels.",
+              "Keeps each sheet’s data intact.",
+              "Delivers a ZIP ready to use."
+            ],
+            actionTitle: "Split sheets",
+            actionSub: "Create one Excel per sheet and download a ZIP."
+          },
+        ]
+      }
+    };
+
+    let lang = "es";
+    let selectedTool = null;
+    let currentFile = null;
+
+    // =======================
+    // Render
+    // =======================
+    function $(id){ return document.getElementById(id); }
+
+    function applyLang(){
+      const t = I18N[lang];
+
+      $("navTools").textContent = t.navTools;
+      $("navPrivacy").textContent = t.navPrivacy;
+
+      $("contactText").textContent = t.contact;
+      $("contactTitle").textContent = t.contactTitle;
+      $("contactDesc").textContent = t.contactDesc;
+      $("contactAction").textContent = t.contactAction;
+
+      $("heroTitle").textContent = t.heroTitle;
+      $("heroSub").textContent = t.heroSub;
+
+      $("backText").textContent = t.back;
+      $("selectBtn").textContent = t.select;
+      $("dropHint").textContent = t.dropHint;
+      $("changeBtn").textContent = t.change;
+      $("previewBtn").textContent = t.preview;
+      $("runBtn").textContent = t.run;
+
+      $("langBtn").textContent = (lang === "es") ? "EN" : "ES";
+
+      renderTools();
+      if (selectedTool) loadAction(selectedTool.id);
+    }
+
+    function renderTools(){
+      const grid = $("toolsGrid");
+      grid.innerHTML = "";
+      const t = I18N[lang];
+
+      for (const tool of t.tools){
+        const card = document.createElement("div");
+        card.className = "card";
+        card.onclick = () => openTool(tool.id);
+
+        card.innerHTML = `
+          <div class="hover-info">
+            <div class="title">${escapeHtml(tool.title)} — ${escapeHtml(tool.chip)}</div>
+            <ul class="list">
+              ${tool.hover.map(x => `<li>${escapeHtml(x)}</li>`).join("")}
+            </ul>
+          </div>
+
+          <div class="chip">
+            <span class="dot"></span>
+            <span>${escapeHtml(tool.chip)}</span>
+          </div>
+
+          <h3>${escapeHtml(tool.title)}</h3>
+          <p>${escapeHtml(tool.desc)}</p>
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, (m) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[m]));
+    }
+
+    // =======================
+    // Navigation
+    // =======================
+    function goHome(){
+      selectedTool = null;
+      $("homeView").style.display = "";
+      $("actionView").style.display = "none";
+      window.location.hash = "";
+    }
+
+    function openTool(id){
+      selectedTool = { id };
+      $("homeView").style.display = "none";
+      $("actionView").style.display = "";
+      window.location.hash = "tool/" + id;
+      loadAction(id);
+      clearFile();
+      log("");
+    }
+
+    function loadAction(id){
+      const t = I18N[lang];
+      const tool = t.tools.find(x => x.id === id);
+      if (!tool) return;
+
+      $("actionTitle").textContent = tool.actionTitle || tool.title;
+      $("actionSubtitle").textContent = tool.actionSub || tool.desc;
+    }
+
+    function toggleLang(){
+      lang = (lang === "es") ? "en" : "es";
+      applyLang();
+    }
+
+    // =======================
+    // File handling
+    // =======================
+    function pickFile(){ $("fileInput").click(); }
+
+    function clearFile(){
+      currentFile = null;
+      $("fileRow").style.display = "none";
+      $("fileName").textContent = "-";
+      $("fileInfo").textContent = "-";
+      $("fileInput").value = "";
+    }
+
+    function setFile(file){
+      currentFile = file;
+      $("fileRow").style.display = "";
+      $("fileName").textContent = file.name;
+      $("fileInfo").textContent = `${(file.size/1024).toFixed(1)} KB • .xlsx`;
+    }
+
+    function setupDrop(){
+      const dz = $("dropZone");
+      dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.style.background = "#f3f7ff"; });
+      dz.addEventListener("dragleave", () => { dz.style.background = "#fbfdff"; });
+      dz.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dz.style.background = "#fbfdff";
+        const f = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) setFile(f);
+      });
+
+      $("selectBtn").addEventListener("click", pickFile);
+      $("fileInput").addEventListener("change", (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (f) setFile(f);
       });
     }
 
-    async function loadLibs(){
-      // XLSX
-      try { await loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js'); }
-      catch(e1){
-        try { await loadScript('https://unpkg.com/xlsx@0.19.3/dist/xlsx.full.min.js'); }
-        catch(e2){ console.error('Failed to load XLSX', e1, e2); }
-      }
-
-      // JSZip
-      try { await loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'); }
-      catch(e1){
-        try { await loadScript('https://unpkg.com/jszip@3.10.1/dist/jszip.min.js'); }
-        catch(e2){ console.error('Failed to load JSZip', e1, e2); }
-      }
-
-      // FileSaver
-      try { await loadScript('https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'); }
-      catch(e1){
-        try { await loadScript('https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js'); }
-        catch(e2){ console.error('Failed to load FileSaver', e1, e2); }
-      }
-
-      window.__LIBS_READY__ = true;
-      window.dispatchEvent(new Event('libs-ready'));
+    // =======================
+    // Logging
+    // =======================
+    function log(text){
+      $("logBox").textContent = text || "";
+    }
+    function logErr(text){
+      $("logBox").innerHTML = `<span class="bad">ERROR ✗</span> ${escapeHtml(text)}`;
+    }
+    function logOk(text){
+      $("logBox").innerHTML = `<span class="ok">OK ✓</span> ${escapeHtml(text)}`;
     }
 
-    loadLibs();
-  </script>
-
-  <!-- ========= APP ========= -->
-  <script>
-    // =========
-    // i18n
-    // =========
-    let LANG = 'es';
-    const I18N = {
-      es: {
-        navTools: 'Herramientas',
-        navPrivacy: 'Privacidad',
-        contact: 'Contact',
-        mainTitle: 'Excel Tools',
-        subtitle: 'Herramientas para solucionarte el día a día en tu trabajo. Subís un .xlsx, aplicás la acción, y descargás!',
-        selectFile: 'Seleccionar archivo Excel',
-        dropHint: 'o arrastrá y soltá el Excel aquí',
-        back: 'Volver',
-        preview: 'Previsualizar',
-        process: 'Procesar',
-        startLog: 'Seleccioná un archivo para comenzar…',
-        readyLog: 'Listo. Podés “Previsualizar” o “Procesar”.',
-        previewing: 'Generando preview…',
-        processing: 'Procesando…',
-        done: 'Listo ✅',
-        noChanges: 'No se detectaron cambios (o no se pudo detectar headers).',
-        libsLoading: 'Cargando librerías…',
-        libsReady: 'Librerías OK. Seleccioná un archivo para comenzar…',
-        libsError: 'ERROR ❌ No se pudieron cargar librerías (XLSX/JSZip/FileSaver). Desactivá AdBlock / red corporativa o probá otra red.'
-      },
-      en: {
-        navTools: 'Tools',
-        navPrivacy: 'Privacy',
-        contact: 'Contact',
-        mainTitle: 'Excel Tools',
-        subtitle: 'Tools to make your daily work easier. Upload a .xlsx, apply the action, and download!',
-        selectFile: 'Select Excel file',
-        dropHint: 'or drag & drop your Excel here',
-        back: 'Back',
-        preview: 'Preview',
-        process: 'Process',
-        startLog: 'Select a file to start…',
-        readyLog: 'Ready. You can Preview or Process.',
-        previewing: 'Generating preview…',
-        processing: 'Processing…',
-        done: 'Done ✅',
-        noChanges: 'No changes detected (or headers not detected).',
-        libsLoading: 'Loading libraries…',
-        libsReady: 'Libraries OK. Select a file to start…',
-        libsError: 'ERROR ❌ Libraries failed to load (XLSX/JSZip/FileSaver). Disable AdBlock / corporate network or try another network.'
+    // =======================
+    // XLSX Helpers
+    // =======================
+    async function ensureLibs(){
+      const t = I18N[lang];
+      try{
+        await window.__LIBS_READY__;
+      } catch(e){
+        logErr(t.libsFail + "\n\n" + (e && e.message ? e.message : String(e)));
+        return false;
       }
-    };
-    function t(key){ return I18N[LANG][key] ?? key; }
 
-    // DOM refs
-    const homeView = document.getElementById('homeView');
-    const toolView = document.getElementById('toolView');
-    const toolsGrid = document.getElementById('toolsGrid');
+      const okXLSX = typeof window.XLSX !== "undefined";
+      const okZip  = typeof window.JSZip !== "undefined";
+      const okSave = typeof window.saveAs !== "undefined";
 
-    const toolTitle = document.getElementById('toolTitle');
-    const toolDesc  = document.getElementById('toolDesc');
-    const toolBadge = document.getElementById('toolBadge');
-
-    const dropzone  = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const selectBtn = document.getElementById('selectBtn');
-    const changeBtn = document.getElementById('changeBtn');
-    const filepill  = document.getElementById('filepill');
-    const fileName  = document.getElementById('fileName');
-    const fileMeta  = document.getElementById('fileMeta');
-
-    const previewBtn= document.getElementById('previewBtn');
-    const processBtn= document.getElementById('processBtn');
-    const logBox    = document.getElementById('log');
-
-    let currentTool = null;
-    let currentFiles = [];
-
-    function escapeHtml(s){
-      return String(s)
-        .replaceAll('&','&amp;').replaceAll('<','&lt;')
-        .replaceAll('>','&gt;').replaceAll('"','&quot;');
-    }
-    function resetLog(msg){ logBox.textContent = msg || ''; }
-    function log(msg){ logBox.textContent += `\n${msg}`; logBox.scrollTop = logBox.scrollHeight; }
-    function humanSize(bytes){
-      const units=['B','KB','MB','GB'];
-      let i=0,n=bytes;
-      while(n>=1024 && i<units.length-1){ n/=1024; i++; }
-      return `${n.toFixed(i===0?0:1)} ${units[i]}`;
-    }
-
-    // =========
-    // Tools list
-    // =========
-    const TOOLS = [
-      {
-        id:'dot2comma',
-        badge:'. → ,',
-        title:{es:'Punto → Coma', en:'Dot → Comma'},
-        desc:{es:'Reemplaza "." por "," en celdas de texto.', en:'Replace "." with "," in text cells.'},
-        tip:{
-          es:'Convierte puntos por comas en <b>texto</b>. Útil cuando pegás datos con separadores “mal” en reports.',
-          en:'Replaces dots with commas in <b>text</b>. Useful for imported reports with wrong separators.'
-        },
-        mode:'replace', find:'.', replace:','
-      },
-      {
-        id:'comma2dot',
-        badge:', → .',
-        title:{es:'Coma → Punto', en:'Comma → Dot'},
-        desc:{es:'Reemplaza "," por "." en celdas de texto.', en:'Replace "," with "." in text cells.'},
-        tip:{
-          es:'Convierte comas por puntos en <b>texto</b>. Perfecto para exports que vienen en formato ES y querés EN.',
-          en:'Replaces commas with dots in <b>text</b>. Great to switch ES-style exports to EN.'
-        },
-        mode:'replace', find:',', replace:'.'
-      },
-      {
-        id:'removeDollar',
-        badge:'$ → (vacío)',
-        title:{es:'Quitar $', en:'Remove $'},
-        desc:{es:'Elimina el símbolo "$" en celdas de texto.', en:'Remove "$" from text cells.'},
-        tip:{
-          es:'Saca el símbolo <b>$</b> en texto para dejar solo el valor y poder analizar mejor.',
-          en:'Removes the <b>$</b> symbol from text so you can analyze values more easily.'
-        },
-        mode:'replace', find:'$', replace:''
-      },
-      {
-        id:'dollarToUSD',
-        badge:'$ → USD',
-        title:{es:'$ → USD', en:'$ → USD'},
-        desc:{es:'Reemplaza "$" por "USD" en celdas de texto.', en:'Replace "$" with "USD" in text cells.'},
-        tip:{
-          es:'Convierte “$” a <b>USD</b> en texto, ideal para reporting y consistencia de moneda.',
-          en:'Converts “$” to <b>USD</b> in text for consistent reporting.'
-        },
-        mode:'replace', find:'$', replace:'USD'
-      },
-      {
-        id:'spaceTrim',
-        badge:'trim()',
-        title:{es:'Trim espacios', en:'Trim spaces'},
-        desc:{es:'Quita espacios al inicio/fin en celdas de texto.', en:'Trim leading/trailing spaces.'},
-        tip:{
-          es:'Elimina espacios invisibles que rompen búsquedas, VLOOKUP, joins y filtros.',
-          en:'Removes invisible spaces that break lookups, joins, filters and searches.'
-        },
-        mode:'trim'
-      },
-      {
-        id:'spaceNorm',
-        badge:'spaces→1',
-        title:{es:'Normalizar espacios', en:'Normalize spaces'},
-        desc:{es:'Convierte múltiples espacios/tabs en un solo espacio.', en:'Collapse multiple spaces/tabs into one.'},
-        tip:{
-          es:'Deja el texto prolijo: múltiples espacios/tabs → 1 espacio.',
-          en:'Cleans messy text: multiple spaces/tabs → single space.'
-        },
-        mode:'collapseSpaces'
-      },
-      {
-        id:'scale1000',
-        badge:'/ 1.000',
-        title:{es:'Escalar a miles', en:'Scale to thousands'},
-        desc:{es:'Divide todos los números por 1.000.', en:'Divide all numbers by 1,000.'},
-        tip:{
-          es:'Convierte montos grandes a miles. Ej: <b>1.000.000 → 1.000</b>.',
-          en:'Converts large values to thousands. Ex: <b>1,000,000 → 1,000</b>.'
-        },
-        mode:'scale', divisor:1000
-      },
-      {
-        id:'scale10000',
-        badge:'/ 10.000',
-        title:{es:'Escalar a diez miles', en:'Scale to ten-thousands'},
-        desc:{es:'Divide todos los números por 10.000.', en:'Divide all numbers by 10,000.'},
-        tip:{
-          es:'Convierte montos grandes a 10.000. Ej: <b>1.000.000 → 100</b>.',
-          en:'Converts values to ten-thousands. Ex: <b>1,000,000 → 100</b>.'
-        },
-        mode:'scale', divisor:10000
-      },
-      {
-        id:'unifySheets',
-        badge:'7 sheets → 1',
-        title:{es:'Unificar hojas (smart)', en:'Unify sheets (smart)'},
-        desc:{es:'Une todas las hojas en una sola, alineando por headers.', en:'Merge all sheets into one, aligned by headers.'},
-        tip:{
-          es:'Une todas las hojas en una sola llamada <b>replaceit</b>. Alinea columnas por encabezados aunque estén en distinto lugar.',
-          en:'Merges all sheets into one named <b>replaceit</b>. Aligns columns by headers even if they shift.'
-        },
-        mode:'unifySheets'
-      },
-      {
-        id:'splitSheets',
-        badge:'1 → N excels',
-        title:{es:'Separar hojas', en:'Split sheets'},
-        desc:{es:'Crea un Excel por cada hoja y descarga un ZIP.', en:'Creates one Excel per sheet and downloads a ZIP.'},
-        tip:{
-          es:'Si tu Excel tiene 9 hojas, crea <b>9 Excels</b> (uno por hoja) y descarga un ZIP.',
-          en:'If your Excel has 9 sheets, it creates <b>9 Excel files</b> (one per sheet) and downloads a ZIP.'
-        },
-        mode:'splitSheets'
-      }
-    ];
-
-    // =========
-    // i18n + render
-    // =========
-    function applyLang() {
-      document.getElementById('navTools').textContent = t('navTools');
-      document.getElementById('navPrivacy').textContent = t('navPrivacy');
-      document.getElementById('mainTitle').textContent = t('mainTitle');
-      document.getElementById('mainSubtitle').textContent = t('subtitle');
-      document.getElementById('selectBtn').textContent = t('selectFile');
-      document.getElementById('dropHint').textContent = t('dropHint');
-      document.getElementById('backLabel').textContent = t('back');
-      previewBtn.textContent = t('preview');
-      processBtn.textContent = t('process');
-      document.getElementById('translateBtn').textContent = LANG === 'es' ? 'EN' : 'ES';
-      renderTools();
-
-      if (!currentFiles.length) {
-        // show libs status message
-        if (window.__LIBS_READY__ && typeof XLSX !== 'undefined') resetLog(t('libsReady'));
-        else resetLog(t('libsLoading'));
-      }
-    }
-
-    document.getElementById('translateBtn').addEventListener('click', () => {
-      LANG = LANG === 'es' ? 'en' : 'es';
-      applyLang();
-    });
-
-    function renderTools(){
-      toolsGrid.innerHTML = TOOLS.map(tool => {
-        const title = tool.title?.[LANG] ?? tool.id;
-        const desc  = tool.desc?.[LANG] ?? '';
-        const tip   = tool.tip?.[LANG] ?? '';
-        return `
-          <div class="tool" onclick="openTool('${tool.id}')">
-            <div class="tool-tag"><span class="dot"></span><span class="small">${escapeHtml(tool.badge || '')}</span></div>
-            <div class="tool-title">${escapeHtml(title)}</div>
-            <div class="tool-desc">${escapeHtml(desc)}</div>
-            <div class="tooltip-oncard">
-              <b>${escapeHtml(title)}</b><br/>
-              ${tip}
-              <div class="mini">${LANG==='es' ? 'Click para abrir esta herramienta.' : 'Click to open this tool.'}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // =========
-    // navigation
-    // =========
-    window.goHome = () => {
-      toolView.classList.remove('active');
-      homeView.classList.add('active');
-      currentFiles = [];
-      currentTool = null;
-      fileInput.value = '';
-      filepill.style.display = 'none';
-      processBtn.disabled = true;
-      resetLog(window.__LIBS_READY__ && typeof XLSX !== 'undefined' ? t('libsReady') : t('libsLoading'));
-      window.scrollTo({top:0, behavior:'smooth'});
-    };
-
-    window.openTool = (id) => {
-      currentTool = TOOLS.find(t => t.id === id);
-      currentFiles = [];
-      fileInput.value = '';
-      toolTitle.textContent = currentTool.title[LANG];
-      toolDesc.textContent  = currentTool.desc[LANG];
-      toolBadge.textContent = currentTool.badge || '';
-      filepill.style.display = 'none';
-      processBtn.disabled = true;
-      resetLog(t('startLog'));
-
-      homeView.classList.remove('active');
-      toolView.classList.add('active');
-      window.scrollTo({top:0, behavior:'smooth'});
-    };
-
-    // =========
-    // file selection
-    // =========
-    selectBtn.onclick = () => fileInput.click();
-    changeBtn.onclick = () => fileInput.click();
-    fileInput.addEventListener('change', (e) => setFile(e.target.files?.[0]));
-
-    function setFile(file){
-      if(!file) return;
-      currentFiles = [file];
-      filepill.style.display = 'flex';
-      fileName.textContent = file.name;
-      fileMeta.textContent = `${humanSize(file.size)} • .xlsx`;
-      processBtn.disabled = false;
-      resetLog(t('readyLog'));
-      log(`Tool: ${currentTool?.id}`);
-      log(`File: ${file.name}`);
-    }
-
-    // drag & drop
-    ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      dropzone.classList.add('dragover');
-    }));
-    ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      dropzone.classList.remove('dragover');
-    }));
-    dropzone.addEventListener('drop', (e) => {
-      const dt = e.dataTransfer;
-      if(dt && dt.files && dt.files.length){
-        const f = dt.files[0];
-        setFile(f);
-      }
-    });
-
-    // =========
-    // Guards (avoid XLSX not defined)
-    // =========
-    function libsOk(){
-      return typeof XLSX !== 'undefined' && typeof JSZip !== 'undefined' && typeof saveAs !== 'undefined';
-    }
-    function guardLibs(){
-      if (!libsOk()){
-        resetLog(t('libsError'));
-        log('Detalle técnico:');
-        log(`XLSX: ${typeof XLSX}`);
-        log(`JSZip: ${typeof JSZip}`);
-        log(`saveAs: ${typeof saveAs}`);
+      if (!okXLSX || !okZip || !okSave){
+        logErr(t.libsFail + `\n\nDetalle técnico:\nXLSX: ${typeof window.XLSX}\nJSZip: ${typeof window.JSZip}\nsaveAs: ${typeof window.saveAs}`);
         return false;
       }
       return true;
     }
 
-    // wait libs-ready event then update log
-    window.addEventListener('libs-ready', () => {
-      if (libsOk()) resetLog(t('libsReady'));
-      else resetLog(t('libsError'));
-    });
-
-    // =========
-    // Transforms helpers
-    // =========
-    function applyTextReplace(s, tool){
-      if (tool.mode === 'trim') return s.trim();
-      if (tool.mode === 'collapseSpaces') return s.replace(/\s+/g, ' ');
-      if (tool.mode === 'replace'){
-        const find = tool.find ?? '';
-        const repl = tool.replace ?? '';
-        if (!find) return s;
-        return s.split(find).join(repl);
-      }
-      return s;
+    function readFileAsArrayBuffer(file){
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error || new Error("FileReader error"));
+        r.readAsArrayBuffer(file);
+      });
     }
 
-    function tryParseNumberFromString(s){
-      if (typeof s !== 'string') return null;
-      const t = s.trim();
-      if (t === '') return null;
+    function downloadWorkbook(workbook, originalName){
+      const out = XLSX.write(workbook, { bookType:"xlsx", type:"array" });
+      const blob = new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 
-      let cleaned = t.replace(/[^\d\-,.]/g,'').replace(/\s+/g,'');
-      if (cleaned === '' || cleaned === '-') return null;
-
-      let normalized = cleaned;
-      if (normalized.includes('.') && normalized.includes(',')){
-        normalized = normalized.replace(/\./g,'').replace(',', '.');
-      } else if (normalized.includes(',') && !normalized.includes('.')){
-        normalized = normalized.replace(',', '.');
-      } else {
-        normalized = normalized.replace(/\./g,'');
-      }
-
-      const n = Number(normalized);
-      return Number.isFinite(n) ? n : null;
-    }
-
-    function scaleCellValue(cell, divisor){
-      if (!cell) return false;
-      const v = cell.v;
-
-      if (typeof v === 'number'){
-        cell.v = v / divisor;
-        cell.t = 'n';
-        return true;
-      }
-      if (typeof v === 'string'){
-        const n = tryParseNumberFromString(v);
-        if (n !== null){
-          cell.v = n / divisor;
-          cell.t = 'n';
-          return true;
-        }
-      }
-      return false;
-    }
-
-    // =========
-    // Smart unify sheets (heuristic)
-    // =========
-    function sheetToAOA(ws){
-      return XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false, raw:true});
+      // Keep original file name (request C)
+      const safe = (originalName || "replaceit.xlsx").replace(/\.xlsx$/i, "");
+      saveAs(blob, safe + "_replaceit.xlsx");
     }
 
     function normalizeHeader(h){
-      if (h == null) return '';
-      const s = String(h).trim();
-      return s.replace(/\s+/g,' ').toLowerCase();
+      return String(h ?? "")
+        .trim()
+        .replace(/\s+/g," ")
+        .toLowerCase();
     }
 
-    function findHeaderRow(aoa){
-      const maxRows = Math.min(25, aoa.length);
-      let best = {idx:-1, score:-1};
-      for (let r=0;r<maxRows;r++){
-        const row = aoa[r] || [];
-        const vals = row.map(v => (v==null?'':String(v).trim())).filter(x=>x!=='');
-        if (vals.length < 2) continue;
-
-        let numericish = 0;
-        for (const v of vals){
-          const n = tryParseNumberFromString(v);
-          if (n !== null) numericish++;
-        }
-        const numericRatio = numericish / vals.length;
-        const score = vals.length * (1 - numericRatio);
-        if (score > best.score){
-          best = {idx:r, score};
-        }
+    // Modify only text cells
+    function forEachCell(ws, fn){
+      for (const addr of Object.keys(ws)){
+        if (addr[0] === "!") continue;
+        const cell = ws[addr];
+        fn(cell, addr);
       }
-      return best.idx;
     }
 
-    function buildHeaderMap(headerRow){
-      const map = new Map();
-      for (let c=0;c<headerRow.length;c++){
-        const orig = headerRow[c];
-        const norm = normalizeHeader(orig);
-        if (!norm) continue;
-        if (!map.has(norm)){
-          map.set(norm, {origName: String(orig).trim(), col: c});
-        }
+    // =======================
+    // Tools
+    // =======================
+    async function previewFile(){
+      const t = I18N[lang];
+      if (!currentFile){
+        logErr(t.needFile);
+        return;
       }
-      return map;
+      if (!await ensureLibs()) return;
+
+      log(t.processing);
+
+      try{
+        const buf = await readFileAsArrayBuffer(currentFile);
+        const wb = XLSX.read(buf, { type:"array" });
+
+        const first = wb.SheetNames[0];
+        const ws = wb.Sheets[first];
+
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
+        const head = rows.slice(0, 12);
+
+        logOk(`${t.previewTitle}: ${first}\n\n` + head.map(r => JSON.stringify(r)).join("\n"));
+      }catch(e){
+        logErr("Preview error: " + (e && e.message ? e.message : String(e)));
+      }
     }
 
-    function unifyWorkbookSheets(wb){
-      const allNormHeaders = new Map(); // norm -> origName
-      const tables = [];
+    async function runTool(){
+      const t = I18N[lang];
+      if (!selectedTool){
+        logErr("No tool selected.");
+        return;
+      }
+      if (!currentFile){
+        logErr(t.needFile);
+        return;
+      }
+      if (!await ensureLibs()) return;
 
-      for (const sn of wb.SheetNames){
-        const ws = wb.Sheets[sn];
-        if (!ws) continue;
-        const aoa = sheetToAOA(ws);
-        if (!aoa || aoa.length === 0) continue;
+      log(t.processing);
 
-        const hIdx = findHeaderRow(aoa);
-        if (hIdx < 0) continue;
+      try{
+        const buf = await readFileAsArrayBuffer(currentFile);
+        const wb = XLSX.read(buf, { type:"array" });
 
-        const headerRow = aoa[hIdx] || [];
-        const hmap = buildHeaderMap(headerRow);
-        if (hmap.size < 2) continue;
+        const id = selectedTool.id;
 
-        for (const [norm, obj] of hmap.entries()){
-          if (!allNormHeaders.has(norm)) allNormHeaders.set(norm, obj.origName);
+        if (id === "split_sheets"){
+          await toolSplitSheets(wb, currentFile.name);
+          logOk(t.doneZip);
+          return;
         }
 
-        const dataRows = aoa.slice(hIdx + 1);
-        tables.push({sheetName: sn, headerMap: hmap, dataRows});
+        if (id === "unify_sheets"){
+          const out = toolUnifySheetsSmart(wb);
+          downloadWorkbook(out, currentFile.name);
+          logOk(t.doneDownload);
+          return;
+        }
+
+        // Other tools: modify in-place and download
+        if (id === "dot_comma") toolReplaceText(wb, ".", ",");
+        if (id === "comma_dot") toolReplaceText(wb, ",", ".");
+        if (id === "remove_$") toolReplaceText(wb, "$", "");
+        if (id === "usd") toolReplaceText(wb, "$", "USD");
+        if (id === "trim") toolTrimText(wb);
+        if (id === "normalize_spaces") toolNormalizeSpaces(wb);
+        if (id === "scale_1000") toolScaleNumbers(wb, 1000);
+        if (id === "scale_10000") toolScaleNumbers(wb, 10000);
+
+        downloadWorkbook(wb, currentFile.name);
+        logOk(t.doneDownload);
+
+      }catch(e){
+        logErr("Process error: " + (e && e.message ? e.message : String(e)));
       }
+    }
 
-      if (!tables.length || allNormHeaders.size < 2){
-        return {ok:false, reason:'no_tables'};
-      }
-
-      const finalNorms = Array.from(allNormHeaders.keys());
-      const finalHeaders = finalNorms.map(n => allNormHeaders.get(n));
-
-      const unified = [];
-      unified.push(finalHeaders);
-
-      for (const t of tables){
-        for (const row of t.dataRows){
-          if (!row || row.length === 0) continue;
-          const hasAny = row.some(v => v != null && String(v).trim() !== '');
-          if (!hasAny) continue;
-
-          const out = new Array(finalNorms.length).fill('');
-          for (let i=0;i<finalNorms.length;i++){
-            const norm = finalNorms[i];
-            const src = t.headerMap.get(norm);
-            if (!src) continue;
-            const v = row[src.col];
-            out[i] = (v == null) ? '' : v;
+    function toolReplaceText(wb, from, to){
+      wb.SheetNames.forEach(name => {
+        const ws = wb.Sheets[name];
+        forEachCell(ws, (cell) => {
+          // only text-like cells
+          if (!cell) return;
+          if (cell.t === "s" || cell.t === "str") {
+            const v = String(cell.v ?? "");
+            if (v.includes(from)) cell.v = v.split(from).join(to);
           }
-          unified.push(out);
+        });
+      });
+    }
+
+    function toolTrimText(wb){
+      wb.SheetNames.forEach(name => {
+        const ws = wb.Sheets[name];
+        forEachCell(ws, (cell) => {
+          if (!cell) return;
+          if (cell.t === "s" || cell.t === "str") {
+            cell.v = String(cell.v ?? "").trim();
+          }
+        });
+      });
+    }
+
+    function toolNormalizeSpaces(wb){
+      wb.SheetNames.forEach(name => {
+        const ws = wb.Sheets[name];
+        forEachCell(ws, (cell) => {
+          if (!cell) return;
+          if (cell.t === "s" || cell.t === "str") {
+            cell.v = String(cell.v ?? "").replace(/\s+/g, " ").trim();
+          }
+        });
+      });
+    }
+
+    function toolScaleNumbers(wb, divisor){
+      wb.SheetNames.forEach(name => {
+        const ws = wb.Sheets[name];
+        forEachCell(ws, (cell) => {
+          if (!cell) return;
+          // numeric only; don't touch formulas
+          if (cell.t === "n" && typeof cell.v === "number") {
+            cell.v = cell.v / divisor;
+          }
+        });
+      });
+    }
+
+    function toolUnifySheetsSmart(wb){
+      // Strategy:
+      // - Take row 1 as headers for each sheet
+      // - Build union of normalized header keys
+      // - For each sheet, map header index positions to unified keys
+      // - Append all rows (starting row 2) into unified sheet
+      const out = XLSX.utils.book_new();
+
+      const unifiedHeaders = [];
+      const headerKeyToName = new Map(); // key -> original display name
+
+      const sheetInfos = wb.SheetNames.map(sname => {
+        const ws = wb.Sheets[sname];
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true });
+        const headerRow = (rows[0] || []).map(h => (h ?? "").toString().trim());
+        const headerKeys = headerRow.map(h => normalizeHeader(h));
+        // Build union
+        headerRow.forEach((h, idx) => {
+          const key = headerKeys[idx];
+          if (!key) return;
+          if (!headerKeyToName.has(key)){
+            headerKeyToName.set(key, h || key);
+            unifiedHeaders.push(key);
+          }
+        });
+        return { sname, rows, headerRow, headerKeys };
+      });
+
+      // Final header names in output
+      const outHeaderRow = unifiedHeaders.map(k => headerKeyToName.get(k) || k);
+
+      const outRows = [ outHeaderRow ];
+
+      for (const info of sheetInfos){
+        const { rows, headerKeys } = info;
+        for (let r = 1; r < rows.length; r++){
+          const row = rows[r] || [];
+          // Create unified row
+          const outRow = new Array(unifiedHeaders.length).fill("");
+          for (let c = 0; c < headerKeys.length; c++){
+            const key = headerKeys[c];
+            if (!key) continue;
+            const outIdx = unifiedHeaders.indexOf(key);
+            if (outIdx >= 0){
+              outRow[outIdx] = row[c] ?? "";
+            }
+          }
+          // Skip fully empty rows
+          if (outRow.every(v => v === "" || v === null || typeof v === "undefined")) continue;
+          outRows.push(outRow);
         }
       }
 
-      return {ok:true, aoa: unified, cols: finalHeaders.length, rows: unified.length};
+      const outWs = XLSX.utils.aoa_to_sheet(outRows);
+
+      // Request B: output sheet name default "replaceit"
+      XLSX.utils.book_append_sheet(out, outWs, "replaceit");
+      return out;
     }
 
-    // =========
-    // Split sheets into ZIP of Excels
-    // =========
-    function splitWorkbookToZip(wb, originalName){
+    async function toolSplitSheets(wb, originalName){
+      // ZIP with one workbook per sheet
       const zip = new JSZip();
-      const base = originalName.replace(/\.xlsx$/i,'');
-
-      for (const sn of wb.SheetNames){
-        const ws = wb.Sheets[sn];
-        if (!ws) continue;
-
+      for (const sheetName of wb.SheetNames){
+        const ws = wb.Sheets[sheetName];
         const newWb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(newWb, ws, sn.substring(0, 31));
-
-        const outBuf = XLSX.write(newWb, {bookType:'xlsx', type:'array'});
-        const safeSheet = sn.replace(/[\\/:*?"<>|]/g,'-').slice(0, 40);
-        zip.file(`${base} - ${safeSheet}.xlsx`, outBuf);
+        XLSX.utils.book_append_sheet(newWb, ws, sheetName);
+        const out = XLSX.write(newWb, { bookType:"xlsx", type:"array" });
+        zip.file(`${sheetName}.xlsx`, out);
       }
-      return zip;
+
+      const blob = await zip.generateAsync({ type:"blob" });
+      const base = (originalName || "replaceit.xlsx").replace(/\.xlsx$/i, "");
+      saveAs(blob, base + "_sheets.zip");
     }
 
-    // =========
-    // Preview + Process
-    // =========
-    previewBtn.onclick = async () => {
-      if (!currentFiles.length || !currentTool) return;
-      if (!guardLibs()) return;
+    // =======================
+    // Init
+    // =======================
+    function init(){
+      setupDrop();
 
-      resetLog(t('previewing'));
-
-      try{
-        const file = currentFiles[0];
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, {type:'array'});
-
-        if (currentTool.mode === 'unifySheets'){
-          const res = unifyWorkbookSheets(wb);
-          if (!res.ok){
-            log(t('noChanges'));
-            return;
-          }
-          log(`Unified preview: columns=${res.cols}, rows=${res.rows}`);
-          log(`Output sheet name: replaceit`);
+      // basic router
+      function route(){
+        const h = (location.hash || "").replace(/^#/, "");
+        if (h.startsWith("tool/")){
+          const id = h.slice("tool/".length);
+          $("homeView").style.display = "none";
+          $("actionView").style.display = "";
+          selectedTool = { id };
+          loadAction(id);
           return;
         }
-
-        if (currentTool.mode === 'splitSheets'){
-          log(`Sheets detected: ${wb.SheetNames.length}`);
-          log(`Output: ZIP with 1 Excel per sheet`);
-          return;
-        }
-
-        let changed = 0;
-        const maxExamples = 12;
-        let examples = [];
-
-        const sn = wb.SheetNames[0];
-        const ws = wb.Sheets[sn];
-        const aoa = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false, raw:true});
-
-        const rMax = Math.min(80, aoa.length);
-        for (let r=0;r<rMax;r++){
-          const row = aoa[r] || [];
-          const cMax = Math.min(40, row.length);
-          for (let c=0;c<cMax;c++){
-            const v = row[c];
-            if (v == null) continue;
-
-            if (currentTool.mode === 'scale'){
-              const n = (typeof v === 'number') ? v : tryParseNumberFromString(String(v));
-              if (n !== null){
-                const after = n / currentTool.divisor;
-                if (after !== n){
-                  changed++;
-                  if (examples.length < maxExamples){
-                    examples.push(`R${r+1}C${c+1}: ${n} → ${after}`);
-                  }
-                }
-              }
-            } else {
-              if (typeof v === 'string'){
-                const after = applyTextReplace(v, currentTool);
-                if (after !== v){
-                  changed++;
-                  if (examples.length < maxExamples){
-                    examples.push(`R${r+1}C${c+1}: "${v}" → "${after}"`);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        log(`Preview changes (sample): ${changed}`);
-        if (examples.length){
-          log(`Examples:\n- ${examples.join('\n- ')}`);
-        } else {
-          log(t('noChanges'));
-        }
-
-      } catch(e){
-        resetLog('Preview error ❌');
-        log(String(e?.message ?? e));
+        $("homeView").style.display = "";
+        $("actionView").style.display = "none";
       }
-    };
+      window.addEventListener("hashchange", route);
 
-    processBtn.onclick = async () => {
-      if (!currentFiles.length || !currentTool) return;
-      if (!guardLibs()) return;
+      applyLang();
+      route();
 
-      processBtn.disabled = true;
-      previewBtn.disabled = true;
-      resetLog(t('processing'));
+      // Initial log with libs status (silent)
+      log("");
+      // Attempt load libs in background; show only if user tries to process without them.
+      window.__LIBS_READY__.catch(()=>{});
+    }
 
-      try{
-        const file = currentFiles[0];
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, {type:'array'});
-
-        // unify sheets
-        if (currentTool.mode === 'unifySheets'){
-          const res = unifyWorkbookSheets(wb);
-          if (!res.ok){
-            log(t('noChanges'));
-            return;
-          }
-          const newWb = XLSX.utils.book_new();
-          const wsOut = XLSX.utils.aoa_to_sheet(res.aoa);
-          XLSX.utils.book_append_sheet(newWb, wsOut, 'replaceit');
-
-          const outBuf = XLSX.write(newWb, {bookType:'xlsx', type:'array'});
-          const outName = file.name.replace(/\.xlsx$/i,'') + ' - unify.xlsx';
-          saveAs(new Blob([outBuf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName);
-
-          log(`Unified: cols=${res.cols}, rows=${res.rows}`);
-          log(t('done'));
-          return;
-        }
-
-        // split sheets
-        if (currentTool.mode === 'splitSheets'){
-          const zip = splitWorkbookToZip(wb, file.name);
-          log(`Sheets: ${wb.SheetNames.length}`);
-          log('Building ZIP…');
-          const zipBlob = await zip.generateAsync({type:'blob'});
-          const outName = file.name.replace(/\.xlsx$/i,'') + ' - split_sheets.zip';
-          saveAs(zipBlob, outName);
-          log(t('done'));
-          return;
-        }
-
-        // scale
-        if (currentTool.mode === 'scale'){
-          let changed = 0;
-          for (const sn of wb.SheetNames){
-            const ws = wb.Sheets[sn];
-            if (!ws || !ws['!ref']) continue;
-            const range = XLSX.utils.decode_range(ws['!ref']);
-            for (let R=range.s.r; R<=range.e.r; R++){
-              for (let C=range.s.c; C<=range.e.c; C++){
-                const addr = XLSX.utils.encode_cell({r:R,c:C});
-                const cell = ws[addr];
-                if (!cell) continue;
-                if (scaleCellValue(cell, currentTool.divisor)) changed++;
-              }
-            }
-          }
-          const outBuf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-          const outName = file.name.replace(/\.xlsx$/i,'') + ` - ${currentTool.id}.xlsx`;
-          saveAs(new Blob([outBuf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName);
-          log(`Cells scaled: ${changed}`);
-          log(t('done'));
-          return;
-        }
-
-        // text transforms
-        let changed = 0;
-        for (const sn of wb.SheetNames){
-          const ws = wb.Sheets[sn];
-          if (!ws || !ws['!ref']) continue;
-          const range = XLSX.utils.decode_range(ws['!ref']);
-          for (let R=range.s.r; R<=range.e.r; R++){
-            for (let C=range.s.c; C<=range.e.c; C++){
-              const addr = XLSX.utils.encode_cell({r:R,c:C});
-              const cell = ws[addr];
-              if (!cell) continue;
-              if (typeof cell.v === 'string'){
-                const before = cell.v;
-                const after = applyTextReplace(before, currentTool);
-                if (after !== before){
-                  cell.v = after;
-                  cell.t = 's';
-                  changed++;
-                }
-              }
-            }
-          }
-        }
-
-        const outBuf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-        const outName = file.name.replace(/\.xlsx$/i,'') + ` - ${currentTool.id}.xlsx`;
-        saveAs(new Blob([outBuf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName);
-
-        log(`Cells changed: ${changed}`);
-        log(t('done'));
-
-      } catch(e){
-        log('\nERROR ❌ ' + String(e?.message ?? e));
-      } finally{
-        processBtn.disabled = false;
-        previewBtn.disabled = false;
-      }
-    };
-
-    // init
-    resetLog(t('libsLoading'));
-    applyLang();
+    init();
   </script>
 </body>
 </html>
