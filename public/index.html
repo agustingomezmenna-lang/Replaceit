@@ -54,7 +54,7 @@
     }
     .linkbtn:hover{border-color:#cbd5e1}
 
-    /* tooltip (APB) */
+    /* tooltip (nav / contact) */
     .tipwrap{ position:relative; display:inline-flex; }
     .tip{
       position:absolute;
@@ -73,7 +73,7 @@
       transform: translateY(-6px);
       pointer-events:none;
       transition: .12s ease;
-      z-index:50;
+      z-index:999;
     }
     .tip b{color:#fff}
     .tip .mini{ color:#a7b0c0; font-size:12px; margin-top:6px }
@@ -120,6 +120,7 @@
       display:flex;flex-direction:column;gap:10px;
       min-height:128px;
       position:relative;
+      overflow: visible; /* important so tooltip can overflow */
     }
     .tool:hover{transform:translateY(-1px);border-color:#d1d5db}
     .tool-title{font-weight:900;font-size:16px}
@@ -129,10 +130,13 @@
       width:10px;height:10px;border-radius:999px;background:var(--blue);
       box-shadow:0 0 0 4px rgba(11,92,255,.12);
     }
+
+    /* ✅ TOOLTIP ON CARD (FIX: show ABOVE the card, not below) */
     .tooltip-oncard{
       position:absolute;
       left:14px;
-      top:calc(100% + 10px);
+      bottom:calc(100% + 10px); /* show above */
+      top:auto;
       width:min(420px, 86vw);
       background:#0b1220;
       color:#e5e7eb;
@@ -143,23 +147,27 @@
       font-size:13px;
       line-height:1.35;
       opacity:0;
-      transform: translateY(-6px);
+      transform: translateY(6px);
       pointer-events:none;
       transition:.12s ease;
-      z-index:40;
+      z-index:999; /* ensure on top */
     }
     .tool:hover .tooltip-oncard{ opacity:1; transform:translateY(0); }
     .tooltip-oncard b{color:#fff}
     .tooltip-oncard .mini{color:#a7b0c0;font-size:12px;margin-top:6px}
+
     .tooltip-oncard:before{
       content:"";
       position:absolute;
-      top:-7px;
+      bottom:-7px; /* arrow points down to card */
+      top:auto;
       left:22px;
       width:12px;height:12px;
       background:#0b1220;
-      border-left:1px solid rgba(255,255,255,.08);
-      border-top:1px solid rgba(255,255,255,.08);
+      border-right:1px solid rgba(255,255,255,.08);
+      border-bottom:1px solid rgba(255,255,255,.08);
+      border-left:none;
+      border-top:none;
       transform: rotate(45deg);
     }
 
@@ -217,7 +225,8 @@
           <div class="tip">
             <b>Contacto</b><br/>
             agustingomezmenna@gmail.com
-            <div class="mini">Tip: hacé click y se abre tu mail.</div>
+            <!-- ✅ FIX: no 'Tip:' -->
+            <div class="mini"><b>Click</b> para enviar un email.</div>
           </div>
         </span>
       </nav>
@@ -426,7 +435,7 @@
         mode:'collapseSpaces'
       },
 
-      // ✅ NEW: scale tools as CARDS
+      // scale tools as CARDS
       {
         id:'scale1000',
         badge:'/ 1.000',
@@ -450,7 +459,7 @@
         mode:'scale', divisor:10000
       },
 
-      // ✅ NEW: unify sheets into one
+      // unify sheets into one
       {
         id:'unifySheets',
         badge:'7 sheets → 1',
@@ -463,7 +472,7 @@
         mode:'unifySheets'
       },
 
-      // ✅ NEW: split sheets into multiple Excels
+      // split sheets into multiple Excels
       {
         id:'splitSheets',
         badge:'1 → N excels',
@@ -521,7 +530,7 @@
             <div class="tooltip-oncard">
               <b>${escapeHtml(title)}</b><br/>
               ${tip}
-              <div class="mini">${LANG==='es' ? 'Tip: click para usar la herramienta.' : 'Tip: click to open the tool.'}</div>
+              <div class="mini">${LANG==='es' ? 'Click para abrir esta herramienta.' : 'Click to open this tool.'}</div>
             </div>
           </div>
         `;
@@ -559,8 +568,6 @@
       processBtn.disabled = true;
       resetLog(t('startLog'));
 
-      // Certain tools only make sense with 1 file
-      // (we enforce 1 file always in this MVP)
       homeView.classList.remove('active');
       toolView.classList.add('active');
       window.scrollTo({top:0, behavior:'smooth'});
@@ -665,7 +672,6 @@
     // Smart unify sheets (heuristic)
     // =========
     function sheetToAOA(ws){
-      // dense array-of-arrays; keeps blanks
       const aoa = XLSX.utils.sheet_to_json(ws, {header:1, blankrows:false, raw:true});
       return aoa;
     }
@@ -673,13 +679,10 @@
     function normalizeHeader(h){
       if (h == null) return '';
       const s = String(h).trim();
-      // keep original name for output later, but normalization for matching
-      // remove extra spaces
       return s.replace(/\s+/g,' ').toLowerCase();
     }
 
     function findHeaderRow(aoa){
-      // Heuristic: first row among first 25 that has >=2 non-empty cells and low numeric ratio
       const maxRows = Math.min(25, aoa.length);
       let best = {idx:-1, score:-1};
       for (let r=0;r<maxRows;r++){
@@ -693,16 +696,15 @@
           if (n !== null) numericish++;
         }
         const numericRatio = numericish / vals.length;
-        const score = vals.length * (1 - numericRatio); // prefer many non-numeric cells
+        const score = vals.length * (1 - numericRatio);
         if (score > best.score){
           best = {idx:r, score};
         }
       }
-      return best.idx; // -1 if none
+      return best.idx;
     }
 
     function buildHeaderMap(headerRow){
-      // returns: { normName -> { origName, colIndex } }
       const map = new Map();
       for (let c=0;c<headerRow.length;c++){
         const orig = headerRow[c];
@@ -716,8 +718,8 @@
     }
 
     function unifyWorkbookSheets(wb){
-      const allNormHeaders = new Map(); // norm -> origName (first seen)
-      const tables = []; // {sheetName, headerRowIdx, headerMap, rowsAOA}
+      const allNormHeaders = new Map(); // norm -> origName
+      const tables = []; // {sheetName, headerMap, dataRows}
 
       for (const sn of wb.SheetNames){
         const ws = wb.Sheets[sn];
@@ -732,32 +734,27 @@
         const hmap = buildHeaderMap(headerRow);
         if (hmap.size < 2) continue;
 
-        // register headers
         for (const [norm, obj] of hmap.entries()){
           if (!allNormHeaders.has(norm)) allNormHeaders.set(norm, obj.origName);
         }
 
         const dataRows = aoa.slice(hIdx + 1);
-        tables.push({sheetName: sn, headerRowIdx: hIdx, headerMap: hmap, dataRows});
+        tables.push({sheetName: sn, headerMap: hmap, dataRows});
       }
 
       if (!tables.length || allNormHeaders.size < 2){
         return {ok:false, reason:'no_tables'};
       }
 
-      // final columns: keep original names (first seen) in a stable order
       const finalNorms = Array.from(allNormHeaders.keys());
       const finalHeaders = finalNorms.map(n => allNormHeaders.get(n));
 
-      // build unified rows
       const unified = [];
       unified.push(finalHeaders);
 
       for (const t of tables){
         for (const row of t.dataRows){
           if (!row || row.length === 0) continue;
-
-          // check if row is empty
           const hasAny = row.some(v => v != null && String(v).trim() !== '');
           if (!hasAny) continue;
 
@@ -816,7 +813,7 @@
           }
           log(`Unified preview: columns=${res.cols}, rows=${res.rows}`);
           log(`Output sheet name: replaceit`);
-          log(`Tip: Click “${t('process')}” to download.`);
+          log(`Click "${t('process')}" to download.`);
           return;
         }
 
@@ -826,7 +823,6 @@
           return;
         }
 
-        // For replace/trim/collapseSpaces/scale: scan first sheet's first 2000 cells best-effort
         let changed = 0;
         const maxExamples = 12;
         let examples = [];
