@@ -1,6 +1,0 @@
-keep
-index.html
-libs/
-  jszip.min.js    (o jszip.min.js.js)
-  FileSaver.min.js (o FileSaver.min.js.js)
-  xlsx.full.min.js (o xlsx.full.min.js.js)
